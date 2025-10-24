@@ -137,7 +137,7 @@ export default function CreateProductModal({
                 type="text"
                 placeholder="Ej: Buzo de Egresados 2025"
                 disabled={isPending}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
+                className={`w-full px-4 py-2 bg-white text-gray-900 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
                   errors.name ? "border-red-300 bg-red-50" : "border-gray-300"
                 } ${isPending ? "opacity-50 cursor-not-allowed" : ""}`}
               />
@@ -162,7 +162,7 @@ export default function CreateProductModal({
                 rows={3}
                 placeholder="Descripción del producto..."
                 disabled={isPending}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors resize-none ${
+                className={`w-full px-4 py-2 bg-white text-gray-900 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors resize-none ${
                   errors.description
                     ? "border-red-300 bg-red-50"
                     : "border-gray-300"
@@ -191,7 +191,7 @@ export default function CreateProductModal({
                   step="0.01"
                   placeholder="50000"
                   disabled={isPending}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
+                  className={`w-full px-4 py-2 bg-white text-gray-900 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
                     errors.basePrice
                       ? "border-red-300 bg-red-50"
                       : "border-gray-300"
@@ -218,7 +218,7 @@ export default function CreateProductModal({
                   step="0.01"
                   placeholder="50000"
                   disabled={isPending}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
+                  className={`w-full px-4 py-2 bg-white text-gray-900 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
                     errors.currentPrice
                       ? "border-red-300 bg-red-50"
                       : "border-gray-300"

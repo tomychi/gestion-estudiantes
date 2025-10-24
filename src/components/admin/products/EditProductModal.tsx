@@ -151,7 +151,7 @@ export default function EditProductModal({
                 id="name"
                 type="text"
                 disabled={isPending}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
+                className={`w-full px-4 py-2 bg-white text-gray-900 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
                   errors.name ? "border-red-300 bg-red-50" : "border-gray-300"
                 } ${isPending ? "opacity-50 cursor-not-allowed" : ""}`}
               />
@@ -174,7 +174,7 @@ export default function EditProductModal({
                 id="description"
                 rows={3}
                 disabled={isPending}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors resize-none ${
+                className={`w-full px-4 py-2 bg-white text-gray-900 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors resize-none ${
                   errors.description
                     ? "border-red-300 bg-red-50"
                     : "border-gray-300"
@@ -196,7 +196,7 @@ export default function EditProductModal({
                   type="number"
                   step="0.01"
                   disabled={isPending}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
+                  className={`w-full px-4 py-2 bg-white text-gray-900 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
                     errors.basePrice
                       ? "border-red-300 bg-red-50"
                       : "border-gray-300"
@@ -222,7 +222,7 @@ export default function EditProductModal({
                   type="number"
                   step="0.01"
                   disabled={isPending}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
+                  className={`w-full px-4 py-2 bg-white text-gray-900 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
                     errors.currentPrice
                       ? "border-red-300 bg-red-50"
                       : "border-gray-300"

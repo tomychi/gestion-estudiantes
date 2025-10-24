@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import EditStudentModal from "./EditStudentModal";
+import QuickSizeModal from "./QuickSizeModal";
+import { normalizeForSearch } from "@/lib/utils/search";
 
 interface Student {
   id: string;
@@ -14,6 +17,7 @@ interface Student {
   totalAmount: number;
   paidAmount: number;
   balance: number;
+  installments: number;
   schoolDivision: {
     id: string;
     division: string;
@@ -50,18 +54,34 @@ export default function StudentsList({
   schools,
   products,
 }: Props) {
-  const [students] = useState(initialStudents);
+  // Use setter to enable updates
+  const [students, setStudents] = useState(initialStudents);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSchool, setSelectedSchool] = useState<string>("");
   const [selectedProduct, setSelectedProduct] = useState<string>("");
 
-  // Filter students
+  // Edit modal state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+
+  // Quick size modal state
+  const [isQuickSizeModalOpen, setIsQuickSizeModalOpen] = useState(false);
+  const [sizeEditStudent, setSizeEditStudent] = useState<Student | null>(null);
+
+  // Filter students with accent-insensitive search
   const filteredStudents = students.filter((student) => {
+    // Accent-insensitive search
+    const normalizedSearch = normalizeForSearch(searchTerm);
     const matchesSearch =
       searchTerm === "" ||
-      student.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.dni.includes(searchTerm);
+      normalizeForSearch(student.firstName).includes(normalizedSearch) ||
+      normalizeForSearch(student.lastName).includes(normalizedSearch) ||
+      normalizeForSearch(`${student.firstName} ${student.lastName}`).includes(
+        normalizedSearch,
+      ) ||
+      normalizeForSearch(student.dni).includes(normalizedSearch) ||
+      (student.email &&
+        normalizeForSearch(student.email).includes(normalizedSearch));
 
     const matchesSchool =
       selectedSchool === "" ||
@@ -77,6 +97,35 @@ export default function StudentsList({
     if (balance === 0) return "text-green-600";
     if (balance > 0) return "text-orange-600";
     return "text-gray-600";
+  };
+
+  const handleEditClick = (student: Student) => {
+    setSelectedStudent(student);
+    setIsEditModalOpen(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setIsEditModalOpen(false);
+    setSelectedStudent(null);
+  };
+
+  const handleSizeClick = (student: Student) => {
+    setSizeEditStudent(student);
+    setIsQuickSizeModalOpen(true);
+  };
+
+  const handleCloseQuickSizeModal = () => {
+    setIsQuickSizeModalOpen(false);
+    setSizeEditStudent(null);
+  };
+
+  const handleSizeUpdate = (studentId: string, newSize: string) => {
+    // Update the local state immediately for instant feedback
+    setStudents((prevStudents) =>
+      prevStudents.map((student) =>
+        student.id === studentId ? { ...student, size: newSize } : student,
+      ),
+    );
   };
 
   return (
@@ -134,14 +183,42 @@ export default function StudentsList({
             >
               Buscar
             </label>
-            <input
-              id="search"
-              type="text"
-              placeholder="Nombre, apellido o DNI"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
+            <div className="relative">
+              <input
+                id="search"
+                type="text"
+                placeholder="Nombre, apellido, DNI o email (ignora acentos)"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-4 py-2 pr-10 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  title="Limpiar búsqueda"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
+            {searchTerm && (
+              <p className="mt-1 text-xs text-gray-500">
+                Buscando: &quot;{searchTerm}&quot; (ignora acentos y mayúsculas)
+              </p>
+            )}
           </div>
 
           {/* School Filter */}
@@ -156,7 +233,7 @@ export default function StudentsList({
               id="school"
               value={selectedSchool}
               onChange={(e) => setSelectedSchool(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             >
               <option value="">Todos los colegios</option>
               {schools.map((school) => (
@@ -179,7 +256,7 @@ export default function StudentsList({
               id="product"
               value={selectedProduct}
               onChange={(e) => setSelectedProduct(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             >
               <option value="">Todos los productos</option>
               {products.map((product) => (
@@ -192,10 +269,24 @@ export default function StudentsList({
         </div>
 
         {/* Results count */}
-        <div className="mt-4 text-sm text-gray-600">
-          Mostrando{" "}
-          <span className="font-semibold">{filteredStudents.length}</span> de{" "}
-          <span className="font-semibold">{students.length}</span> estudiantes
+        <div className="mt-4 flex items-center justify-between">
+          <div className="text-sm text-gray-600">
+            Mostrando{" "}
+            <span className="font-semibold">{filteredStudents.length}</span> de{" "}
+            <span className="font-semibold">{students.length}</span> estudiantes
+          </div>
+          {(searchTerm || selectedSchool || selectedProduct) && (
+            <button
+              onClick={() => {
+                setSearchTerm("");
+                setSelectedSchool("");
+                setSelectedProduct("");
+              }}
+              className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+            >
+              Limpiar filtros
+            </button>
+          )}
         </div>
       </div>
 
@@ -214,6 +305,9 @@ export default function StudentsList({
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Producto
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Talle
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Saldo
@@ -265,6 +359,37 @@ export default function StudentsList({
                       {student.product.name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
+                      {student.size ? (
+                        <button
+                          onClick={() => handleSizeClick(student)}
+                          className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-semibold bg-indigo-100 text-indigo-800 hover:bg-indigo-200 transition-colors cursor-pointer group"
+                          title="Click para cambiar talle"
+                        >
+                          {student.size}
+                          <svg
+                            className="w-3.5 h-3.5 ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                            />
+                          </svg>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleSizeClick(student)}
+                          className="text-sm text-indigo-600 hover:text-indigo-800 font-medium hover:underline"
+                        >
+                          + Agregar talle
+                        </button>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm">
                         <div
                           className={`font-semibold ${getBalanceColor(student.balance)}`}
@@ -277,12 +402,21 @@ export default function StudentsList({
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link
-                        href={`/admin/students/${student.id}`}
-                        className="text-indigo-600 hover:text-indigo-900"
-                      >
-                        Ver detalles
-                      </Link>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleEditClick(student)}
+                          className="text-indigo-600 hover:text-indigo-900 font-medium"
+                        >
+                          Editar
+                        </button>
+                        <span className="text-gray-300">|</span>
+                        <Link
+                          href={`/admin/students/${student.id}`}
+                          className="text-gray-600 hover:text-gray-900 font-medium"
+                        >
+                          Ver detalles
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -312,7 +446,7 @@ export default function StudentsList({
           </h3>
           <p className="text-gray-600 mb-6">
             {searchTerm || selectedSchool || selectedProduct
-              ? "Intentá con otros filtros"
+              ? "Intentá con otros filtros o términos de búsqueda"
               : "Agregá el primer estudiante para comenzar"}
           </p>
           {!searchTerm && !selectedSchool && !selectedProduct && (
@@ -358,6 +492,27 @@ export default function StudentsList({
             </div>
           )}
         </div>
+      )}
+
+      {/* Full Edit Modal */}
+      {selectedStudent && (
+        <EditStudentModal
+          student={selectedStudent}
+          isOpen={isEditModalOpen}
+          onClose={handleCloseEditModal}
+        />
+      )}
+
+      {/* Quick Size Modal */}
+      {sizeEditStudent && (
+        <QuickSizeModal
+          studentId={sizeEditStudent.id}
+          studentName={`${sizeEditStudent.firstName} ${sizeEditStudent.lastName}`}
+          currentSize={sizeEditStudent.size}
+          isOpen={isQuickSizeModalOpen}
+          onClose={handleCloseQuickSizeModal}
+          onSuccess={(newSize) => handleSizeUpdate(sizeEditStudent.id, newSize)}
+        />
       )}
     </div>
   );

@@ -131,7 +131,7 @@ export default function LoginForm() {
           type="text"
           placeholder="12345678 o tu@email.com"
           disabled={isPending}
-          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
+          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 placeholder-gray-400 focus:border-transparent transition-colors ${
             errors.identifier
               ? "border-red-300 bg-red-50"
               : "border-gray-300 bg-white"
@@ -159,7 +159,7 @@ export default function LoginForm() {
             type={showPassword ? "text" : "password"}
             placeholder="••••••••"
             disabled={isPending}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors pr-10 ${
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 placeholder-gray-400 focus:border-transparent transition-colors ${
               errors.password
                 ? "border-red-300 bg-red-50"
                 : "border-gray-300 bg-white"

@@ -46,7 +46,7 @@ export default async function AdminDashboardPage() {
       .from("Payment")
       .select("*", { count: "exact", head: true })
       .eq("status", "PENDING"),
-    supabase.from("Payment").select("amount, status"),
+    supabase.from("User").select("amount, status"),
     supabase
       .from("User")
       .select("*, schoolDivision:SchoolDivision(division, school:School(name))")

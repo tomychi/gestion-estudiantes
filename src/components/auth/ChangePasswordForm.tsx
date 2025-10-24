@@ -114,7 +114,7 @@ export default function ChangePasswordForm({ userId, dni }: Props) {
             type={showCurrentPassword ? "text" : "password"}
             placeholder="Ingresá tu DNI"
             disabled={isPending}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors pr-10 ${
+            className={`w-full px-4 py-2 bg-white text-gray-900 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors pr-10 ${
               errors.currentPassword
                 ? "border-red-300 bg-red-50"
                 : "border-gray-300 bg-white"
@@ -167,7 +167,7 @@ export default function ChangePasswordForm({ userId, dni }: Props) {
             type={showNewPassword ? "text" : "password"}
             placeholder="Mínimo 6 caracteres"
             disabled={isPending}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors pr-10 ${
+            className={`w-full px-4 py-2 bg-white text-gray-900 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors pr-10 ${
               errors.newPassword
                 ? "border-red-300 bg-red-50"
                 : "border-gray-300 bg-white"
@@ -220,7 +220,7 @@ export default function ChangePasswordForm({ userId, dni }: Props) {
             type={showConfirmPassword ? "text" : "password"}
             placeholder="Repetí tu nueva contraseña"
             disabled={isPending}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors pr-10 ${
+            className={`w-full px-4 py-2 bg-white text-gray-900 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors pr-10 ${
               errors.confirmPassword
                 ? "border-red-300 bg-red-50"
                 : "border-gray-300 bg-white"

@@ -129,7 +129,7 @@ export default function CreateSchoolModal({
                 type="text"
                 placeholder="Ej: Colegio Nacional de Buenos Aires"
                 disabled={isPending}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
+                className={`w-full px-4 py-2 bg-white text-gray-900 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
                   errors.name ? "border-red-300 bg-red-50" : "border-gray-300"
                 } ${isPending ? "opacity-50 cursor-not-allowed" : ""}`}
               />
@@ -154,7 +154,7 @@ export default function CreateSchoolModal({
                 type="text"
                 placeholder="Ej: Bolívar 263, CABA"
                 disabled={isPending}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
+                className={`w-full px-4 py-2 bg-white text-gray-900 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
                   errors.address
                     ? "border-red-300 bg-red-50"
                     : "border-gray-300"
