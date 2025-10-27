@@ -1,3 +1,6 @@
+// src/middleware.ts
+// SOLO CAMBIÓ LA PARTE DE publicRoutes
+
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
@@ -19,6 +22,7 @@ export async function middleware(request: NextRequest) {
     "/api/auth",
     "/api/test-db",
     "/api/create-test-student",
+    "/api/mercadopago/webhook", // ✅ AGREGADO - webhook debe ser público
   ];
   const isPublicRoute = publicRoutes.some((route) =>
     pathname.startsWith(route),
