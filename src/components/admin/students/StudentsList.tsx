@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import EditStudentModal from "./EditStudentModal";
 import QuickSizeModal from "./QuickSizeModal";
 import { normalizeForSearch } from "@/lib/utils/search";
+import RegisterCashPaymentModal from "./RegisterCashPaymentModal";
 
 interface Student {
   id: string;
@@ -54,6 +56,12 @@ export default function StudentsList({
   schools,
   products,
 }: Props) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Get division filter from URL
+  const divisionFilter = searchParams?.get("division") || "";
+
   // Use setter to enable updates
   const [students, setStudents] = useState(initialStudents);
   const [searchTerm, setSearchTerm] = useState("");
@@ -67,6 +75,33 @@ export default function StudentsList({
   // Quick size modal state
   const [isQuickSizeModalOpen, setIsQuickSizeModalOpen] = useState(false);
   const [sizeEditStudent, setSizeEditStudent] = useState<Student | null>(null);
+
+  // Get division info if filtering
+  const [divisionInfo, setDivisionInfo] = useState<{
+    name: string;
+    schoolName: string;
+  } | null>(null);
+
+  // Cash payment modal state
+  const [isCashPaymentModalOpen, setIsCashPaymentModalOpen] = useState(false);
+  const [cashPaymentStudent, setCashPaymentStudent] = useState<Student | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (divisionFilter) {
+      // Find the student with this division to get division info
+      const studentWithDivision = students.find(
+        (s) => s.schoolDivision?.id === divisionFilter,
+      );
+      if (studentWithDivision?.schoolDivision) {
+        setDivisionInfo({
+          name: `${studentWithDivision.schoolDivision.division} - ${studentWithDivision.schoolDivision.year}`,
+          schoolName: studentWithDivision.schoolDivision.school.name,
+        });
+      }
+    }
+  }, [divisionFilter, students]);
 
   // Filter students with accent-insensitive search
   const filteredStudents = students.filter((student) => {
@@ -90,7 +125,11 @@ export default function StudentsList({
     const matchesProduct =
       selectedProduct === "" || student.product.id === selectedProduct;
 
-    return matchesSearch && matchesSchool && matchesProduct;
+    // Division filter from URL
+    const matchesDivision =
+      divisionFilter === "" || student.schoolDivision?.id === divisionFilter;
+
+    return matchesSearch && matchesSchool && matchesProduct && matchesDivision;
   });
 
   const getBalanceColor = (balance: number) => {
@@ -128,8 +167,65 @@ export default function StudentsList({
     );
   };
 
+  const handleRegisterCashPayment = (student: Student) => {
+    setCashPaymentStudent(student);
+    setIsCashPaymentModalOpen(true);
+  };
+
   return (
     <div className="space-y-6">
+      {/* Division Filter Banner */}
+      {divisionFilter && divisionInfo && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-100 rounded-lg">
+                <svg
+                  className="w-6 h-6 text-indigo-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm text-indigo-600 font-medium">
+                  Filtrando por división
+                </p>
+                <p className="text-lg font-bold text-indigo-900">
+                  {divisionInfo.schoolName} - {divisionInfo.name}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => router.push("/admin/students")}
+              className="flex items-center gap-2 px-4 py-2 bg-white text-indigo-600 border border-indigo-300 rounded-lg hover:bg-indigo-50 font-medium transition-colors"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+              Quitar filtro
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-3">
         <Link
@@ -322,7 +418,7 @@ export default function StudentsList({
                   <tr key={student.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                        <div className="shrink-0 h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center">
                           <span className="text-indigo-600 font-semibold text-sm">
                             {student.firstName[0]}
                             {student.lastName[0]}
@@ -404,6 +500,14 @@ export default function StudentsList({
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2">
                         <button
+                          onClick={() => handleRegisterCashPayment(student)}
+                          className="text-green-600 hover:text-green-900 font-medium"
+                          title="Registrar pago en efectivo"
+                        >
+                          💵
+                        </button>
+                        <span className="text-gray-300">|</span>
+                        <button
                           onClick={() => handleEditClick(student)}
                           className="text-indigo-600 hover:text-indigo-900 font-medium"
                         >
@@ -440,57 +544,60 @@ export default function StudentsList({
             />
           </svg>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            {searchTerm || selectedSchool || selectedProduct
+            {searchTerm || selectedSchool || selectedProduct || divisionFilter
               ? "No se encontraron estudiantes"
               : "No hay estudiantes registrados"}
           </h3>
           <p className="text-gray-600 mb-6">
-            {searchTerm || selectedSchool || selectedProduct
+            {searchTerm || selectedSchool || selectedProduct || divisionFilter
               ? "Intentá con otros filtros o términos de búsqueda"
               : "Agregá el primer estudiante para comenzar"}
           </p>
-          {!searchTerm && !selectedSchool && !selectedProduct && (
-            <div className="flex gap-3 justify-center">
-              <Link
-                href="/admin/students/create"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium transition-colors"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+          {!searchTerm &&
+            !selectedSchool &&
+            !selectedProduct &&
+            !divisionFilter && (
+              <div className="flex gap-3 justify-center">
+                <Link
+                  href="/admin/students/create"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium transition-colors"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                Agregar Estudiante
-              </Link>
-              <Link
-                href="/admin/students/import"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                  Agregar Estudiante
+                </Link>
+                <Link
+                  href="/admin/students/import"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                  />
-                </svg>
-                Importar desde Excel
-              </Link>
-            </div>
-          )}
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                    />
+                  </svg>
+                  Importar desde Excel
+                </Link>
+              </div>
+            )}
         </div>
       )}
 
@@ -512,6 +619,18 @@ export default function StudentsList({
           isOpen={isQuickSizeModalOpen}
           onClose={handleCloseQuickSizeModal}
           onSuccess={(newSize) => handleSizeUpdate(sizeEditStudent.id, newSize)}
+        />
+      )}
+
+      {/* Cash Payment Modal */}
+      {cashPaymentStudent && (
+        <RegisterCashPaymentModal
+          isOpen={isCashPaymentModalOpen}
+          onClose={() => {
+            setIsCashPaymentModalOpen(false);
+            setCashPaymentStudent(null);
+          }}
+          student={cashPaymentStudent}
         />
       )}
     </div>

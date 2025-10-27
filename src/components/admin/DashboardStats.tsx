@@ -7,6 +7,11 @@ interface Stats {
   pendingPayments: number;
   totalRevenue: number;
   pendingAmount: number;
+  totalBalance: number;
+  totalExpected: number;
+  approvalRate: number;
+  approvedCount: number;
+  rejectedCount: number;
 }
 
 interface Props {
@@ -33,7 +38,7 @@ export default function DashboardStats({ stats }: Props) {
           />
         </svg>
       ),
-      color: "bg-blue-500",
+      color: "from-blue-500 to-blue-600",
       bgLight: "bg-blue-50",
       textColor: "text-blue-600",
     },
@@ -55,35 +60,14 @@ export default function DashboardStats({ stats }: Props) {
           />
         </svg>
       ),
-      color: "bg-green-500",
+      color: "from-green-500 to-green-600",
       bgLight: "bg-green-50",
       textColor: "text-green-600",
     },
     {
-      name: "Productos",
-      value: stats.totalProducts,
-      icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-          />
-        </svg>
-      ),
-      color: "bg-purple-500",
-      bgLight: "bg-purple-50",
-      textColor: "text-purple-600",
-    },
-    {
       name: "Pagos Pendientes",
       value: stats.pendingPayments,
+      subtitle: `$${stats.pendingAmount.toLocaleString("es-AR")}`,
       icon: (
         <svg
           className="w-6 h-6"
@@ -99,13 +83,38 @@ export default function DashboardStats({ stats }: Props) {
           />
         </svg>
       ),
-      color: "bg-yellow-500",
+      color: "from-yellow-500 to-yellow-600",
       bgLight: "bg-yellow-50",
       textColor: "text-yellow-600",
+      link: "/admin/payments?status=pending",
     },
     {
-      name: "Ingresos Totales",
+      name: "Ingresos Confirmados",
       value: `$${stats.totalRevenue.toLocaleString("es-AR")}`,
+      subtitle: `${stats.approvedCount} pagos aprobados`,
+      icon: (
+        <svg
+          className="w-6 h-6"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+      ),
+      color: "from-emerald-500 to-emerald-600",
+      bgLight: "bg-emerald-50",
+      textColor: "text-emerald-600",
+    },
+    {
+      name: "Balance Total Pendiente",
+      value: `$${stats.totalBalance.toLocaleString("es-AR")}`,
+      subtitle: `de $${stats.totalExpected.toLocaleString("es-AR")} esperado`,
       icon: (
         <svg
           className="w-6 h-6"
@@ -121,13 +130,14 @@ export default function DashboardStats({ stats }: Props) {
           />
         </svg>
       ),
-      color: "bg-emerald-500",
-      bgLight: "bg-emerald-50",
-      textColor: "text-emerald-600",
+      color: "from-orange-500 to-orange-600",
+      bgLight: "bg-orange-50",
+      textColor: "text-orange-600",
     },
     {
-      name: "Monto Pendiente",
-      value: `$${stats.pendingAmount.toLocaleString("es-AR")}`,
+      name: "Tasa de Aprobación",
+      value: `${stats.approvalRate}%`,
+      subtitle: `${stats.rejectedCount} rechazados`,
       icon: (
         <svg
           className="w-6 h-6"
@@ -139,36 +149,51 @@ export default function DashboardStats({ stats }: Props) {
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth={2}
-            d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 00 2-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
           />
         </svg>
       ),
-      color: "bg-orange-500",
-      bgLight: "bg-orange-50",
-      textColor: "text-orange-600",
+      color: "from-purple-500 to-purple-600",
+      bgLight: "bg-purple-50",
+      textColor: "text-purple-600",
     },
   ];
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {statCards.map((stat) => (
-        <div
-          key={stat.name}
-          className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <p className="text-sm font-medium text-gray-600">{stat.name}</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">
-                {stat.value}
-              </p>
+      {statCards.map((stat) => {
+        const CardWrapper = stat.link ? "a" : "div";
+        const cardProps = stat.link
+          ? { href: stat.link, className: "cursor-pointer" }
+          : {};
+
+        return (
+          <CardWrapper key={stat.name} {...cardProps}>
+            <div className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-all border border-gray-100">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-600">
+                    {stat.name}
+                  </p>
+                  <p className="text-3xl font-bold text-gray-900 mt-2">
+                    {stat.value}
+                  </p>
+                  {stat.subtitle && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {stat.subtitle}
+                    </p>
+                  )}
+                </div>
+                <div
+                  className={`bg-linear-to-br ${stat.color} p-3 rounded-lg shadow-sm`}
+                >
+                  <div className="text-white">{stat.icon}</div>
+                </div>
+              </div>
             </div>
-            <div className={`${stat.bgLight} p-3 rounded-lg`}>
-              <div className={stat.textColor}>{stat.icon}</div>
-            </div>
-          </div>
-        </div>
-      ))}
+          </CardWrapper>
+        );
+      })}
     </div>
   );
 }
