@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import EditStudentModal from "./EditStudentModal";
 import QuickSizeModal from "./QuickSizeModal";
 import { normalizeForSearch } from "@/lib/utils/search";
-import RegisterCashPaymentModal from "./RegisterCashPaymentModal";
 
 interface Student {
   id: string;
@@ -81,12 +80,6 @@ export default function StudentsList({
     name: string;
     schoolName: string;
   } | null>(null);
-
-  // Cash payment modal state
-  const [isCashPaymentModalOpen, setIsCashPaymentModalOpen] = useState(false);
-  const [cashPaymentStudent, setCashPaymentStudent] = useState<Student | null>(
-    null,
-  );
 
   useEffect(() => {
     if (divisionFilter) {
@@ -165,11 +158,6 @@ export default function StudentsList({
         student.id === studentId ? { ...student, size: newSize } : student,
       ),
     );
-  };
-
-  const handleRegisterCashPayment = (student: Student) => {
-    setCashPaymentStudent(student);
-    setIsCashPaymentModalOpen(true);
   };
 
   return (
@@ -500,14 +488,6 @@ export default function StudentsList({
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => handleRegisterCashPayment(student)}
-                          className="text-green-600 hover:text-green-900 font-medium"
-                          title="Registrar pago en efectivo"
-                        >
-                          💵
-                        </button>
-                        <span className="text-gray-300">|</span>
-                        <button
                           onClick={() => handleEditClick(student)}
                           className="text-indigo-600 hover:text-indigo-900 font-medium"
                         >
@@ -619,18 +599,6 @@ export default function StudentsList({
           isOpen={isQuickSizeModalOpen}
           onClose={handleCloseQuickSizeModal}
           onSuccess={(newSize) => handleSizeUpdate(sizeEditStudent.id, newSize)}
-        />
-      )}
-
-      {/* Cash Payment Modal */}
-      {cashPaymentStudent && (
-        <RegisterCashPaymentModal
-          isOpen={isCashPaymentModalOpen}
-          onClose={() => {
-            setIsCashPaymentModalOpen(false);
-            setCashPaymentStudent(null);
-          }}
-          student={cashPaymentStudent}
         />
       )}
     </div>

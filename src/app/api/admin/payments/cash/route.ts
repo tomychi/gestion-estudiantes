@@ -4,16 +4,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth.config";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
 
-const registerCashPaymentSchema = z.object({
-  studentId: z.string().uuid("Invalid student ID"),
+const cashPaymentSchema = z.object({
+  studentDni: z.string().min(7, "DNI inválido"),
   installments: z
-    .array(z.number().int().positive())
-    .min(1, "Select at least one installment"),
-  amount: z.number().positive("Amount must be positive"),
-  notes: z.string().min(1, "Notes are required for cash payments"),
-  receiptNumber: z.string().optional(),
+    .array(z.number())
+    .min(1, "Debe seleccionar al menos una cuota"),
+  amount: z.number().positive("El monto debe ser positivo"),
 });
 
 export async function POST(request: Request) {
@@ -22,50 +19,47 @@ export async function POST(request: Request) {
 
     if (!session || session.user.role !== "ADMIN") {
       return NextResponse.json(
-        { success: false, error: "Unauthorized - Admins only" },
+        { success: false, error: "No autorizado" },
         { status: 401 },
       );
     }
 
     const body = await request.json();
-    const validatedData = registerCashPaymentSchema.parse(body);
+    const validatedData = cashPaymentSchema.parse(body);
+
+    const receiptNumber = body.receiptNumber || undefined;
+    const notes = body.notes || undefined;
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     );
 
-    // Get student data
     const { data: student, error: studentError } = await supabase
       .from("User")
       .select(
-        "id, firstName, lastName, balance, totalAmount, installments, paidAmount",
+        "id, firstName, lastName, dni, totalAmount, installments, paidAmount, balance",
       )
-      .eq("id", validatedData.studentId)
+      .eq("dni", validatedData.studentDni)
       .eq("role", "STUDENT")
       .single();
 
     if (studentError || !student) {
       return NextResponse.json(
-        { success: false, error: "Student not found" },
+        { success: false, error: "Estudiante no encontrado" },
         { status: 404 },
       );
     }
 
-    // Validate installments are valid
     for (const installmentNum of validatedData.installments) {
       if (installmentNum < 1 || installmentNum > student.installments) {
         return NextResponse.json(
-          {
-            success: false,
-            error: `Invalid installment number: ${installmentNum}`,
-          },
+          { success: false, error: `Cuota inválida: ${installmentNum}` },
           { status: 400 },
         );
       }
     }
 
-    // Check if installments already have approved payments or pending review
     const { data: existingPayments } = await supabase
       .from("Payment")
       .select("installmentNumber, status")
@@ -80,7 +74,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: `Installment(s) ${blockedInstallments.join(", ")} already paid or pending`,
+          error: `La(s) cuota(s) ${blockedInstallments.join(", ")} ya están pagadas o pendientes`,
         },
         { status: 400 },
       );
@@ -89,108 +83,71 @@ export async function POST(request: Request) {
     const now = new Date().toISOString();
     const transactionRef = `CASH-${student.id}-${Date.now()}`;
 
-    // Build notes with receipt number if provided
-    let paymentNotes = `💵 Pago en EFECTIVO - ${validatedData.notes}`;
-    if (validatedData.receiptNumber) {
-      paymentNotes += ` | Recibo: ${validatedData.receiptNumber}`;
-    }
+    let paymentNotes = `💵 Pago en EFECTIVO`;
+    if (notes) paymentNotes += ` - ${notes}`;
+    if (receiptNumber) paymentNotes += ` | Recibo: ${receiptNumber}`;
     paymentNotes += ` | Registrado por: ${session.user.firstName} ${session.user.lastName}`;
 
-    // Create payment records (one per installment) - PRE-APPROVED
     const paymentRecords = validatedData.installments.map((installmentNum) => ({
       userId: student.id,
       amount: validatedData.amount / validatedData.installments.length,
-      status: "APPROVED", // Pre-approved since admin verified cash
+      status: "APPROVED",
       installmentNumber: installmentNum,
-      receiptUrl: null, // No receipt URL for cash payments
+      receiptUrl: null,
       transactionRef: transactionRef,
       notes: paymentNotes,
       submittedAt: now,
       reviewedBy: session.user.id,
       reviewedAt: now,
-      paymentDate: now,
     }));
 
-    const { data: payments, error: paymentsError } = await supabase
+    const { error: paymentsError } = await supabase
       .from("Payment")
-      .insert(paymentRecords)
-      .select();
+      .insert(paymentRecords);
 
     if (paymentsError) {
-      console.error("Payment creation error:", paymentsError);
+      console.error("Error:", paymentsError);
       return NextResponse.json(
-        {
-          success: false,
-          error: `Failed to create payment records: ${paymentsError.message}`,
-        },
+        { success: false, error: "Error al registrar el pago" },
         { status: 500 },
       );
     }
 
-    // Update user balance using atomic RPC function
-    const { data: balanceData, error: balanceError } = await supabase.rpc(
-      "increment_paid_amount",
-      {
-        user_id_param: student.id,
-        amount_param: validatedData.amount,
-      },
-    );
+    const { error: updateUserError } = await supabase
+      .from("User")
+      .update({
+        paidAmount: student.paidAmount + validatedData.amount,
+        balance: student.balance - validatedData.amount,
+      })
+      .eq("id", student.id);
 
-    if (balanceError || !balanceData || balanceData.length === 0) {
-      console.error("Error updating balance:", balanceError);
-
-      // Rollback: delete created payments
+    if (updateUserError) {
+      console.error("Error:", updateUserError);
       await supabase
         .from("Payment")
         .delete()
         .eq("transactionRef", transactionRef);
-
       return NextResponse.json(
-        {
-          success: false,
-          error: "Failed to update student balance",
-        },
+        { success: false, error: "Error al actualizar el balance" },
         { status: 500 },
       );
     }
 
-    const newPaidAmount = balanceData[0].new_paid_amount;
-    const newBalance = balanceData[0].new_balance;
-
-    // Revalidate caches
-    revalidatePath("/dashboard");
-    revalidatePath("/admin");
-    revalidatePath("/admin/students");
-    revalidatePath("/admin/payments");
-
     return NextResponse.json({
       success: true,
-      message: `Cash payment registered successfully for ${validatedData.installments.length} installment(s)`,
-      data: {
-        transactionRef,
-        payments,
-        newPaidAmount,
-        newBalance,
-      },
+      message: `Pago registrado exitosamente para ${student.firstName} ${student.lastName}`,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        {
-          success: false,
-          error: `Validation error: ${error.message}`,
-        },
+        { success: false, error: error.message },
         { status: 400 },
       );
     }
 
-    console.error("Unexpected error:", error);
+    console.error("Error:", error);
     return NextResponse.json(
-      {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Unknown error occurred",
-      },
+      { success: false, error: "Error desconocido" },
       { status: 500 },
     );
   }

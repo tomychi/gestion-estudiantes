@@ -74,6 +74,12 @@ export default function StudentDetailClient({
   stats,
 }: Props) {
   const [selectedTab, setSelectedTab] = useState<"info" | "payments">("info");
+  const [approvingPayments, setApprovingPayments] = useState<Set<string>>(
+    new Set(),
+  );
+  const [rejectingPayments, setRejectingPayments] = useState<Set<string>>(
+    new Set(),
+  );
 
   const getStatusBadge = (status: string) => {
     const styles = {
@@ -95,6 +101,72 @@ export default function StudentDetailClient({
         {labels[status as keyof typeof labels]}
       </span>
     );
+  };
+
+  const handleQuickApprove = async (paymentId: string) => {
+    if (!confirm("¿Aprobar este pago?")) return;
+
+    setApprovingPayments((prev) => new Set(prev).add(paymentId));
+
+    try {
+      const res = await fetch(`/api/admin/payments/${paymentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "APPROVE" }),
+      });
+
+      const data = await res.json();
+
+      if (!data.success) {
+        alert(data.error || "Error al aprobar");
+        return;
+      }
+
+      window.location.reload();
+    } catch (err) {
+      alert("Error de conexión");
+    } finally {
+      setApprovingPayments((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(paymentId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleQuickReject = async (paymentId: string) => {
+    const reason = prompt("Razón del rechazo:");
+    if (!reason?.trim()) return;
+
+    setRejectingPayments((prev) => new Set(prev).add(paymentId));
+
+    try {
+      const res = await fetch(`/api/admin/payments/${paymentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "REJECT",
+          rejectionReason: reason.trim(),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!data.success) {
+        alert(data.error || "Error al rechazar");
+        return;
+      }
+
+      window.location.reload();
+    } catch (err) {
+      alert("Error de conexión");
+    } finally {
+      setRejectingPayments((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(paymentId);
+        return newSet;
+      });
+    }
   };
 
   return (
@@ -469,7 +541,7 @@ export default function StudentDetailClient({
                       Notas
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                      Comprobante
+                      Acciones
                     </th>
                   </tr>
                 </thead>
@@ -493,18 +565,108 @@ export default function StudentDetailClient({
                       <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">
                         {payment.notes || "-"}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                        {payment.receiptUrl ? (
-                          <a
-                            href={payment.receiptUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-indigo-600 hover:text-indigo-900 font-medium"
-                          >
-                            Ver
-                          </a>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        {payment.status === "PENDING" ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleQuickApprove(payment.id)}
+                              disabled={approvingPayments.has(payment.id)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              title="Aprobar pago"
+                            >
+                              {approvingPayments.has(payment.id) ? (
+                                <>
+                                  <svg
+                                    className="animate-spin h-3 w-3"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <circle
+                                      className="opacity-25"
+                                      cx="12"
+                                      cy="12"
+                                      r="10"
+                                      stroke="currentColor"
+                                      strokeWidth="4"
+                                    ></circle>
+                                    <path
+                                      className="opacity-75"
+                                      fill="currentColor"
+                                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                    ></path>
+                                  </svg>
+                                  <span>Aprobando...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <svg
+                                    className="w-3 h-3"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M5 13l4 4L19 7"
+                                    />
+                                  </svg>
+                                  <span>Aprobar</span>
+                                </>
+                              )}
+                            </button>
+                            <button
+                              onClick={() => handleQuickReject(payment.id)}
+                              disabled={rejectingPayments.has(payment.id)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              title="Rechazar pago"
+                            >
+                              {rejectingPayments.has(payment.id) ? (
+                                <>
+                                  <svg
+                                    className="animate-spin h-3 w-3"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <circle
+                                      className="opacity-25"
+                                      cx="12"
+                                      cy="12"
+                                      r="10"
+                                      stroke="currentColor"
+                                      strokeWidth="4"
+                                    ></circle>
+                                    <path
+                                      className="opacity-75"
+                                      fill="currentColor"
+                                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                    ></path>
+                                  </svg>
+                                  <span>Rechazando...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <svg
+                                    className="w-3 h-3"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M6 18L18 6M6 6l12 12"
+                                    />
+                                  </svg>
+                                  <span>Rechazar</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
                         ) : (
-                          <span className="text-gray-400">-</span>
+                          <span className="text-gray-400 text-xs">-</span>
                         )}
                       </td>
                     </tr>

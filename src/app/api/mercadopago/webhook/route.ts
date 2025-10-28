@@ -1,5 +1,5 @@
 // src/app/api/mercadopago/webhook/route.ts
-// VERSIÓN CON LOGS COMPLETOS PARA DEBUG
+// VERSIÓN QUE ACTUALIZA PAGOS EXISTENTES
 
 import { NextResponse } from "next/server";
 import { MercadoPagoConfig, Payment } from "mercadopago";
@@ -41,6 +41,7 @@ export async function POST(request: Request) {
     console.log("Payment details:", {
       id: payment.id,
       status: payment.status,
+      payment_type: payment.payment_type_id,
       external_reference: payment.external_reference,
     });
 
@@ -69,119 +70,148 @@ export async function POST(request: Request) {
     );
 
     // Check if payment already exists
-    const { data: existingPayment } = await supabase
+    const { data: existingPayments } = await supabase
       .from("Payment")
-      .select("id")
-      .eq("transactionRef", `MP-${paymentId}`)
-      .single();
-
-    if (existingPayment) {
-      console.log("⏭️  Payment already processed");
-      return NextResponse.json({ success: true });
-    }
+      .select("*")
+      .eq("transactionRef", `MP-${paymentId}`);
 
     // Handle different payment statuses
     if (payment.status === "approved") {
-      console.log("✅ Payment approved, creating records...");
+      console.log("✅ Payment approved");
 
-      // Create approved payment records for each installment
-      const paymentRecords = installments.map((installmentNum: number) => ({
-        userId: userId,
-        amount: amount / installments.length,
-        status: "APPROVED",
-        installmentNumber: installmentNum,
-        transactionRef: `MP-${paymentId}`,
-        paymentMethod: "MERCADOPAGO",
-        notes: `Pago automático vía Mercado Pago`,
-        submittedAt: new Date().toISOString(),
-        reviewedAt: new Date().toISOString(),
-        paymentDate: new Date().toISOString(),
-      }));
+      if (existingPayments && existingPayments.length > 0) {
+        // ✅ UPDATE existing payments
+        console.log("🔄 Updating existing payments to APPROVED");
 
-      console.log("💾 Inserting payment records:", paymentRecords);
+        const now = new Date().toISOString();
 
-      const { data: insertedPayments, error: insertError } = await supabase
-        .from("Payment")
-        .insert(paymentRecords)
-        .select();
-
-      if (insertError) {
-        console.error("❌ Error inserting payments:", insertError);
-        return NextResponse.json(
-          { success: false, error: insertError.message },
-          { status: 500 },
-        );
-      }
-
-      console.log("✅ Payments inserted:", insertedPayments);
-
-      // Update user balance
-      const { data: user } = await supabase
-        .from("User")
-        .select("paidAmount, balance")
-        .eq("id", userId)
-        .single();
-
-      if (user) {
-        console.log("💰 Updating user balance...");
-
-        const { data: updatedUser, error: updateError } = await supabase
-          .from("User")
+        const { error: updateError } = await supabase
+          .from("Payment")
           .update({
-            paidAmount: user.paidAmount + amount,
-            balance: user.balance - amount,
+            status: "APPROVED",
+            reviewedAt: now,
           })
-          .eq("id", userId)
-          .select();
+          .eq("transactionRef", `MP-${paymentId}`);
 
         if (updateError) {
-          console.error("❌ Error updating user:", updateError);
+          console.error("❌ Error updating payments:", updateError);
         } else {
-          console.log("✅ User updated:", updatedUser);
+          console.log("✅ Payments updated to APPROVED");
+
+          // Update user balance
+          const { data: user } = await supabase
+            .from("User")
+            .select("paidAmount, balance")
+            .eq("id", userId)
+            .single();
+
+          if (user) {
+            // Calculate amount to add (only if not already paid)
+            const firstPayment = existingPayments[0];
+            if (firstPayment.status !== "APPROVED") {
+              await supabase
+                .from("User")
+                .update({
+                  paidAmount: user.paidAmount + amount,
+                  balance: user.balance - amount,
+                })
+                .eq("id", userId);
+
+              console.log("✅ User balance updated");
+            }
+          }
+        }
+      } else {
+        // ✅ CREATE new approved payments
+        console.log("💾 Creating new APPROVED payments");
+
+        const paymentRecords = installments.map((installmentNum: number) => ({
+          userId: userId,
+          amount: amount / installments.length,
+          status: "APPROVED",
+          installmentNumber: installmentNum,
+          transactionRef: `MP-${paymentId}`,
+          notes: `Pago vía Mercado Pago - ${payment.payment_type_id === "ticket" ? "Efectivo" : "Tarjeta"}`,
+          submittedAt: new Date().toISOString(),
+          reviewedAt: new Date().toISOString(),
+        }));
+
+        const { error: insertError } = await supabase
+          .from("Payment")
+          .insert(paymentRecords);
+
+        if (insertError) {
+          console.error("❌ Error inserting payments:", insertError);
+        } else {
+          console.log("✅ Payments created");
+
+          // Update user balance
+          const { data: user } = await supabase
+            .from("User")
+            .select("paidAmount, balance")
+            .eq("id", userId)
+            .single();
+
+          if (user) {
+            await supabase
+              .from("User")
+              .update({
+                paidAmount: user.paidAmount + amount,
+                balance: user.balance - amount,
+              })
+              .eq("id", userId);
+
+            console.log("✅ User balance updated");
+          }
         }
       }
 
       console.log(
         `✅ Payment approved for user ${userId}, installments: ${installments.join(", ")}`,
       );
-    } else if (payment.status === "rejected") {
-      console.log("❌ Payment rejected");
-
-      // Create rejected payment record
-      await supabase.from("Payment").insert({
-        userId: userId,
-        amount: amount,
-        status: "REJECTED",
-        installmentNumber: null,
-        transactionRef: `MP-${paymentId}`,
-        paymentMethod: "MERCADOPAGO",
-        notes: `Pago rechazado: ${payment.status_detail}`,
-        rejectionReason:
-          payment.status_detail || "Pago rechazado por Mercado Pago",
-        submittedAt: new Date().toISOString(),
-        reviewedAt: new Date().toISOString(),
-      });
-
-      console.log(`❌ Payment rejected for user ${userId}`);
     } else if (
       payment.status === "pending" ||
       payment.status === "in_process"
     ) {
       console.log("⏳ Payment pending");
 
-      // Create pending payment record
-      await supabase.from("Payment").insert({
-        userId: userId,
-        amount: amount,
-        status: "PENDING",
-        installmentNumber: installments[0],
-        transactionRef: `MP-${paymentId}`,
-        paymentMethod: "MERCADOPAGO",
-        notes: `Pago pendiente de confirmación`,
-        submittedAt: new Date().toISOString(),
-      });
+      if (existingPayments && existingPayments.length > 0) {
+        console.log("⏭️  Payment already exists as pending");
+      } else {
+        // Create pending payment record
+        const paymentRecords = installments.map((installmentNum: number) => ({
+          userId: userId,
+          amount: amount / installments.length,
+          status: "PENDING",
+          installmentNumber: installmentNum,
+          transactionRef: `MP-${paymentId}`,
+          notes: `Pago pendiente - ${payment.payment_type_id === "ticket" ? "Esperando pago en efectivo" : "En proceso"}`,
+          submittedAt: new Date().toISOString(),
+        }));
 
-      console.log(`⏳ Payment pending for user ${userId}`);
+        await supabase.from("Payment").insert(paymentRecords);
+
+        console.log(`⏳ Payment pending for user ${userId}`);
+      }
+    } else if (
+      payment.status === "rejected" ||
+      payment.status === "cancelled"
+    ) {
+      console.log("❌ Payment rejected/cancelled");
+
+      if (existingPayments && existingPayments.length > 0) {
+        // Update to rejected
+        await supabase
+          .from("Payment")
+          .update({
+            status: "REJECTED",
+            rejectionReason:
+              payment.status_detail || "Pago rechazado/cancelado",
+          })
+          .eq("transactionRef", `MP-${paymentId}`);
+
+        console.log("✅ Payment updated to REJECTED");
+      }
     }
 
     return NextResponse.json({ success: true });
