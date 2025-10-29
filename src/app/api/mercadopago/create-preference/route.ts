@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth.config";
 import { MercadoPagoConfig, Preference } from "mercadopago";
 import { createClient } from "@supabase/supabase-js";
+import { isProduction, getBaseUrl } from "@/lib/utils/env";
 
 const mercadopago = new MercadoPagoConfig({
   accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN!,
@@ -39,16 +40,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // Get ngrok URL
-    const ngrokUrl =
-      process.env.NEXT_PUBLIC_APP_URL || "https://b92b67c3664e.ngrok-free.app";
+    const baseUrl = getBaseUrl();
 
-    console.log(
-      "✅ Creating preference for user:",
-      user.id,
-      "installments:",
-      installments,
-    );
+    console.log("📍 Base URL:", baseUrl);
 
     // Crear preferencia
     const preference = await new Preference(mercadopago).create({
@@ -74,22 +68,27 @@ export async function POST(request: Request) {
           installments: installments.join(","),
         },
         // Notification URL
-        notification_url: `${ngrokUrl}/api/mercadopago/webhook/`,
+        notification_url: `${baseUrl}/api/mercadopago/webhook/`,
         // Back URLs
         back_urls: {
-          success: `${ngrokUrl}/dashboard?payment=success`,
-          failure: `${ngrokUrl}/dashboard?payment=failure`,
-          pending: `${ngrokUrl}/dashboard?payment=pending`,
+          success: `${baseUrl}/dashboard?payment=success`,
+          failure: `${baseUrl}/dashboard?payment=failure`,
+          pending: `${baseUrl}/dashboard?payment=pending`,
         },
         auto_return: "approved",
       },
     });
 
-    console.log("✅ Preference created:", preference.id);
+    const isProduction = process.env.NODE_ENV === "production";
 
     return NextResponse.json({
       success: true,
-      init_point: preference.init_point,
+      // En producción usar init_point, en desarrollo sandbox_init_point
+      init_point: isProduction
+        ? preference.init_point
+        : preference.sandbox_init_point,
+
+      preference_id: preference.id,
     });
   } catch (error) {
     console.error("❌ Error:", error);

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import UploadPaymentModal from "./UploadPaymentModal";
 import InstallmentsTable from "./InstallmentsTable";
 import { signOut } from "next-auth/react";
 import {
@@ -17,7 +16,6 @@ interface Props {
 }
 
 export default function DashboardClient({ session, user, payments }: Props) {
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [selectedInstallmentsForPayment, setSelectedInstallmentsForPayment] =
     useState<number[]>([]);
 
@@ -66,7 +64,7 @@ export default function DashboardClient({ session, user, payments }: Props) {
       }
 
       // Redirect to MercadoPago checkout
-      window.location.href = data.sandbox_init_point || data.init_point;
+      window.location.href = data.init_point;
     } catch (error) {
       console.error("Error:", error);
       alert("Error al procesar el pago. Intentá nuevamente.");
@@ -438,18 +436,6 @@ export default function DashboardClient({ session, user, payments }: Props) {
           )}
         </div>
       </main>
-
-      {/* Upload Payment Modal */}
-      <UploadPaymentModal
-        isOpen={isUploadModalOpen}
-        onClose={() => setIsUploadModalOpen(false)}
-        userId={user.id}
-        totalAmount={user.totalAmount}
-        paidAmount={user.paidAmount}
-        balance={user.balance}
-        totalInstallments={user.installments}
-        existingPayments={payments}
-      />
     </div>
   );
 }
