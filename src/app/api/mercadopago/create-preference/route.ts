@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 
     // Get ngrok URL
     const ngrokUrl =
-      process.env.NEXT_PUBLIC_APP_URL || "https://db862994f768.ngrok-free.app";
+      process.env.NEXT_PUBLIC_APP_URL || "https://b92b67c3664e.ngrok-free.app";
 
     console.log(
       "✅ Creating preference for user:",

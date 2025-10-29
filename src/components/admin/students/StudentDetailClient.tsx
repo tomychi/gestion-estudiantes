@@ -1,70 +1,20 @@
-// src/components/admin/students/StudentDetailClient.tsx
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-
-interface Student {
-  id: string;
-  firstName: string;
-  lastName: string;
-  dni: string;
-  email: string | null;
-  phone: string | null;
-  size: string | null;
-  totalAmount: number;
-  paidAmount: number;
-  balance: number;
-  installments: number;
-  notes: string | null;
-  createdAt: string;
-  schoolDivision: {
-    id: string;
-    division: string;
-    year: number;
-    school: {
-      id: string;
-      name: string;
-      address: string | null;
-    };
-  } | null;
-  product: {
-    id: string;
-    name: string;
-    description: string | null;
-    currentPrice: number;
-  };
-}
-
-interface Payment {
-  id: string;
-  amount: number;
-  status: string;
-  installmentNumber: number | null;
-  receiptUrl: string | null;
-  transactionRef: string | null;
-  notes: string | null;
-  rejectionReason: string | null;
-  submittedAt: string;
-  paymentDate: string | null;
-}
-
-interface InstallmentStatus {
-  number: number;
-  amount: number;
-  paid: boolean;
-  paymentDate: string | null;
-}
+import EditStudentModal from "./EditStudentModal";
+import CashPaymentModalSingle from "./CashPaymentModalSingle";
+import type {
+  SerializedUserWithRelations,
+  SerializedPayment,
+  InstallmentStatus,
+  PaymentStats,
+} from "@/types";
 
 interface Props {
-  student: Student;
-  payments: Payment[];
+  student: SerializedUserWithRelations;
+  payments: SerializedPayment[];
   installmentStatus: InstallmentStatus[];
-  stats: {
-    approved: number;
-    pending: number;
-    rejected: number;
-  };
+  stats: PaymentStats;
 }
 
 export default function StudentDetailClient({
@@ -80,6 +30,9 @@ export default function StudentDetailClient({
   const [rejectingPayments, setRejectingPayments] = useState<Set<string>>(
     new Set(),
   );
+
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isCashPaymentOpen, setIsCashPaymentOpen] = useState(false);
 
   const getStatusBadge = (status: string) => {
     const styles = {
@@ -171,6 +124,58 @@ export default function StudentDetailClient({
 
   return (
     <div className="space-y-6">
+      {/* Header with Action Buttons */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">
+            {student.firstName} {student.lastName}
+          </h2>
+          <p className="text-gray-600 mt-1">
+            DNI: {student.dni} • {student.schoolDivision?.school.name} -{" "}
+            {student.schoolDivision?.division}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsCashPaymentOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
+              />
+            </svg>
+            💵 Pago en Efectivo
+          </button>
+          <button
+            onClick={() => setIsEditModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium transition-colors"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+              />
+            </svg>
+            Editar Datos
+          </button>
+        </div>
+      </div>
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -497,24 +502,6 @@ export default function StudentDetailClient({
                 ))}
               </div>
             </div>
-
-            {/* Quick Actions */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Acciones
-              </h3>
-              <div className="space-y-3">
-                <Link
-                  href={`/admin/payments?search=${student.dni}`}
-                  className="block w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium transition-colors text-center"
-                >
-                  Ver Pagos
-                </Link>
-                <button className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium transition-colors">
-                  Editar Datos
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       ) : (
@@ -696,6 +683,18 @@ export default function StudentDetailClient({
           )}
         </div>
       )}
+      {/* Edit Modal */}
+      <EditStudentModal
+        student={student}
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+      />
+      {/* Cash Payment Modal */}
+      <CashPaymentModalSingle
+        student={student}
+        isOpen={isCashPaymentOpen}
+        onClose={() => setIsCashPaymentOpen(false)}
+      />
     </div>
   );
 }

@@ -112,7 +112,12 @@ export default function QuickSizeModal({
         setIsSubmitting(false);
       }, 500);
     } catch (err) {
-      setError("Error de conexión. Intentá nuevamente.");
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "Error de conexión. Intentá nuevamente.";
+
+      setError(errorMessage);
       setIsSubmitting(false);
     }
   };
@@ -152,7 +157,12 @@ export default function QuickSizeModal({
         setIsSubmitting(false);
       }, 500);
     } catch (err) {
-      setError("Error de conexión. Intentá nuevamente.");
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "Error de conexión. Intentá nuevamente.";
+
+      setError(errorMessage);
       setIsSubmitting(false);
     }
   };
@@ -191,7 +201,12 @@ export default function QuickSizeModal({
         setIsSubmitting(false);
       }, 500);
     } catch (err) {
-      setError("Error de conexión. Intentá nuevamente.");
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "Error de conexión. Intentá nuevamente.";
+
+      setError(errorMessage);
       setIsSubmitting(false);
     }
   };
@@ -334,7 +349,7 @@ export default function QuickSizeModal({
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start gap-2">
                 <svg
-                  className="w-5 h-5 mt-0.5 flex-shrink-0"
+                  className="w-5 h-5 mt-0.5 shrink-0"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                 >

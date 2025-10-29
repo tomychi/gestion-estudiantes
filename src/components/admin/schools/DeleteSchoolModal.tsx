@@ -1,15 +1,10 @@
 "use client";
 
+import { SchoolWithStats } from "@/types";
 import { useState, useTransition } from "react";
 
-interface School {
-  id: string;
-  name: string;
-  studentCount: number;
-}
-
 interface Props {
-  school: School;
+  school: SchoolWithStats;
   isOpen: boolean;
   onClose: () => void;
   onSchoolDeleted: (schoolId: string) => void;
@@ -42,7 +37,12 @@ export default function DeleteSchoolModal({
 
         onSchoolDeleted(school.id);
       } catch (err) {
-        setError("Ocurrió un error. Intentá nuevamente.");
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : "Ocurrió un error. Intentá nuevamente.";
+
+        setError(errorMessage);
       }
     });
   };
@@ -55,8 +55,7 @@ export default function DeleteSchoolModal({
   };
 
   if (!isOpen) return null;
-
-  const hasStudents = school.studentCount > 0;
+  const hasStudents = (school.studentCount ?? 0) > 0;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -102,7 +101,7 @@ export default function DeleteSchoolModal({
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
               <div className="flex gap-3">
                 <svg
-                  className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5"
+                  className="w-5 h-5 text-red-600 shrink-0 mt-0.5"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                 >
@@ -127,7 +126,7 @@ export default function DeleteSchoolModal({
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
               <div className="flex gap-3">
                 <svg
-                  className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5"
+                  className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                 >

@@ -1,45 +1,11 @@
-// src/components/admin/payments/PaymentReviewModal.tsx
 "use client";
 
+import { PaymentWithUser } from "@/types";
 import Image from "next/image";
 import { useState } from "react";
 
-interface Payment {
-  id: string;
-  amount: number;
-  status: string;
-  installmentNumber: number | null;
-  receiptUrl: string | null;
-  transactionRef: string | null;
-  notes: string | null;
-  rejectionReason: string | null;
-  submittedAt: string;
-  reviewedAt: string | null;
-  user: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    dni: string;
-    email: string | null;
-    totalAmount: number;
-    paidAmount: number;
-    balance: number;
-    installments: number;
-    schoolDivision: {
-      division: string;
-      year: number;
-      school: {
-        name: string;
-      };
-    } | null;
-    product: {
-      name: string;
-    };
-  };
-}
-
 interface Props {
-  payments: Payment[]; // Changed from single payment to array
+  payments: PaymentWithUser[]; // Changed from single payment to array
   isOpen: boolean;
   onClose: () => void;
   onComplete: () => void;

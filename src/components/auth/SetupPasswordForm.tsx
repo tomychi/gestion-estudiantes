@@ -79,7 +79,12 @@ export default function SetupPasswordForm() {
 
       setDniVerified(true);
     } catch (err) {
-      setError("Error al verificar el DNI. Intentá nuevamente.");
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "Error al verificar el DNI. Intentá nuevamente.";
+
+      setError(errorMessage);
     } finally {
       setIsCheckingDNI(false);
     }
@@ -106,13 +111,24 @@ export default function SetupPasswordForm() {
         }
 
         if (result.user) {
-          setUserName(`${result.user.firstName} ${result.user.lastName}`);
+          const fullName = `${result.user.firstName} ${result.user.lastName}`;
+          setUserName(fullName);
+
+          // Mostrar mensaje temporal
+          setTimeout(() => {
+            router.push("/login?registered=true");
+          }, 2000);
         }
 
         // Redirect to login with success message
         router.push("/login?registered=true");
       } catch (err) {
-        setError("Ocurrió un error. Intentá nuevamente.");
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : "Ocurrió un error. Intentá nuevamente.";
+
+        setError(errorMessage);
       }
     });
   };
@@ -123,7 +139,7 @@ export default function SetupPasswordForm() {
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
           <svg
-            className="w-5 h-5 flex-shrink-0"
+            className="w-5 h-5 shrink-0"
             fill="currentColor"
             viewBox="0 0 20 20"
           >
@@ -141,7 +157,7 @@ export default function SetupPasswordForm() {
       {dniVerified && !error && (
         <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center gap-2">
           <svg
-            className="w-5 h-5 flex-shrink-0"
+            className="w-5 h-5 shrink-0"
             fill="currentColor"
             viewBox="0 0 20 20"
           >
@@ -393,6 +409,11 @@ export default function SetupPasswordForm() {
             )}
           </button>
         </>
+      )}
+      {userName && (
+        <div className="mt-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-center">
+          ¡Bienvenido, {userName}! Redirigiendo al login...
+        </div>
       )}
     </form>
   );

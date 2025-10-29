@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function SetupPasswordPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-teal-100 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-green-50 to-teal-100 px-4">
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-xl p-8">
           {/* Header */}
@@ -38,7 +38,7 @@ export default function SetupPasswordPage() {
           {/* Info Alert */}
           <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg mb-6 flex items-start gap-3">
             <svg
-              className="w-5 h-5 flex-shrink-0 mt-0.5"
+              className="w-5 h-5 shrink-0 mt-0.5"
               fill="currentColor"
               viewBox="0 0 20 20"
             >

@@ -5,27 +5,23 @@ import Link from "next/link";
 import CreateSchoolModal from "./CreateSchoolModal";
 import EditSchoolModal from "./EditSchoolModal";
 import DeleteSchoolModal from "./DeleteSchoolModal";
-
-interface School {
-  id: string;
-  name: string;
-  address: string | null;
-  studentCount: number;
-  divisionCount: number;
-  createdAt: string;
-}
+import { SchoolWithStats } from "@/types";
 
 interface Props {
-  schools: School[];
+  schools: SchoolWithStats[];
 }
 
 export default function SchoolsList({ schools: initialSchools }: Props) {
   const [schools, setSchools] = useState(initialSchools);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [editingSchool, setEditingSchool] = useState<School | null>(null);
-  const [deletingSchool, setDeletingSchool] = useState<School | null>(null);
+  const [editingSchool, setEditingSchool] = useState<SchoolWithStats | null>(
+    null,
+  );
+  const [deletingSchool, setDeletingSchool] = useState<SchoolWithStats | null>(
+    null,
+  );
 
-  const handleSchoolCreated = (newSchool: School) => {
+  const handleSchoolCreated = (newSchool: SchoolWithStats) => {
     setSchools([
       ...schools,
       { ...newSchool, studentCount: 0, divisionCount: 0 },
@@ -33,7 +29,7 @@ export default function SchoolsList({ schools: initialSchools }: Props) {
     setIsCreateModalOpen(false);
   };
 
-  const handleSchoolUpdated = (updatedSchool: School) => {
+  const handleSchoolUpdated = (updatedSchool: SchoolWithStats) => {
     setSchools(
       schools.map((s) =>
         s.id === updatedSchool.id
@@ -89,7 +85,7 @@ export default function SchoolsList({ schools: initialSchools }: Props) {
             >
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-indigo-300 transition-all overflow-hidden group">
                 <div className="p-6">
-                  {/* School Name  */}
+                  {/* SchoolWithStats Name  */}
 
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -114,7 +110,7 @@ export default function SchoolsList({ schools: initialSchools }: Props) {
                       {school.address && (
                         <p className="text-sm text-gray-600 flex items-start gap-1">
                           <svg
-                            className="w-4 h-4 flex-shrink-0 mt-0.5"
+                            className="w-4 h-4 shrink-0 mt-0.5"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"

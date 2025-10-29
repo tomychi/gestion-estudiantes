@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { ProductWithStats } from "@/types";
 
 const editProductSchema = z.object({
   name: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
@@ -14,19 +15,11 @@ const editProductSchema = z.object({
 
 type EditProductFormData = z.infer<typeof editProductSchema>;
 
-interface Product {
-  id: string;
-  name: string;
-  description: string | null;
-  basePrice: number;
-  currentPrice: number;
-}
-
 interface Props {
-  product: Product;
+  product: ProductWithStats;
   isOpen: boolean;
   onClose: () => void;
-  onProductUpdated: (product: any) => void;
+  onProductUpdated: (product: ProductWithStats) => void;
 }
 
 export default function EditProductModal({

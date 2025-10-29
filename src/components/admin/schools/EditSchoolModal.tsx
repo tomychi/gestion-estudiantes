@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { School } from "@/types";
 
 const editSchoolSchema = z.object({
   name: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
@@ -12,17 +13,11 @@ const editSchoolSchema = z.object({
 
 type EditSchoolFormData = z.infer<typeof editSchoolSchema>;
 
-interface School {
-  id: string;
-  name: string;
-  address: string | null;
-}
-
 interface Props {
   school: School;
   isOpen: boolean;
   onClose: () => void;
-  onSchoolUpdated: (school: any) => void;
+  onSchoolUpdated: (school: School) => void;
 }
 
 export default function EditSchoolModal({

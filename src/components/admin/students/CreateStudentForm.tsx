@@ -3,24 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
-
-interface School {
-  id: string;
-  name: string;
-  address: string | null;
-}
-
-interface Product {
-  id: string;
-  name: string;
-  currentPrice: number;
-}
-
-interface Division {
-  id: string;
-  division: string;
-  year: number;
-}
+import { SchoolDivision, School, Product, CreateStudentPayload } from "@/types";
 
 interface Props {
   schools: School[];
@@ -45,7 +28,7 @@ export default function CreateStudentForm({
   );
 
   // Divisions for selected school
-  const [divisions, setDivisions] = useState<Division[]>([]);
+  const [divisions, setDivisions] = useState<SchoolDivision[]>([]);
   const [loadingDivisions, setLoadingDivisions] = useState(false);
 
   // Form data
@@ -117,7 +100,7 @@ export default function CreateStudentForm({
         .order("division", { ascending: true });
 
       if (!error && data) {
-        setDivisions(data);
+        setDivisions(data as SchoolDivision[]);
       }
     } catch (err) {
       console.error("Error loading divisions:", err);
@@ -133,8 +116,15 @@ export default function CreateStudentForm({
     setIsSubmitting(true);
 
     try {
-      // Build request payload
-      const payload: any = {
+      // Build request payload with proper typing
+      const payload: Partial<CreateStudentPayload> & {
+        schoolId?: string;
+        schoolName?: string;
+        schoolAddress?: string;
+        divisionId?: string;
+        divisionName?: string;
+        divisionYear?: number;
+      } = {
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
         dni: formData.dni.trim(),
@@ -163,7 +153,6 @@ export default function CreateStudentForm({
       // Division data
       if (divisionMode === "existing" && schoolMode === "existing") {
         payload.divisionId = formData.divisionId;
-        // Need to get division name and year from selected division
         const selectedDivision = divisions.find(
           (d) => d.id === formData.divisionId,
         );
@@ -193,7 +182,6 @@ export default function CreateStudentForm({
       setSuccess(true);
 
       if (andAddAnother) {
-        // Reset form but keep school/division/product
         setFormData((prev) => ({
           ...prev,
           firstName: "",
@@ -207,10 +195,8 @@ export default function CreateStudentForm({
         }));
         setSuccess(false);
         setIsSubmitting(false);
-        // Scroll to top
         window.scrollTo({ top: 0, behavior: "smooth" });
       } else {
-        // Redirect to students list
         setTimeout(() => {
           router.push("/admin/students?created=true");
         }, 1500);

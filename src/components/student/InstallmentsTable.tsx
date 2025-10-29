@@ -1,18 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
-
-interface Payment {
-  installmentNumber: number | null;
-  status: string;
-  amount: number;
-  submittedAt?: string;
-}
+import { SerializedPayment } from "@/types";
+import { useState } from "react";
 
 interface Props {
   totalInstallments: number;
   installmentAmount: number;
-  existingPayments: Payment[];
+  existingPayments: SerializedPayment[];
   onSelectionChange: (selectedInstallments: number[]) => void;
   disabled?: boolean;
 }
@@ -51,13 +45,13 @@ export default function InstallmentsTable({
       : null;
   };
 
+  // Y en handleInstallmentToggle, agregar la validación:
   const handleInstallmentToggle = (installmentNum: number) => {
     if (disabled) return;
 
     const isPaid = paidInstallments.has(installmentNum);
     const isPending = pendingInstallments.has(installmentNum);
 
-    // Don't allow selection of paid or pending installments
     if (isPaid || isPending) return;
 
     setSelectedInstallments((prev) => {
@@ -65,24 +59,15 @@ export default function InstallmentsTable({
         ? prev.filter((n) => n !== installmentNum)
         : [...prev, installmentNum].sort((a, b) => a - b);
 
-      // Notify parent component
-      onSelectionChange(newSelection);
+      // Notify parent in next tick to avoid setState during render
+      setTimeout(() => {
+        onSelectionChange(newSelection);
+      }, 0);
 
       return newSelection;
     });
   };
 
-  // Reset selection when disabled changes
-  useEffect(() => {
-    if (disabled && selectedInstallments.length > 0) {
-      setSelectedInstallments([]);
-      // Use setTimeout to avoid calling setState during render
-      setTimeout(() => {
-        onSelectionChange([]);
-      }, 0);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [disabled]); // ✅ Remover onSelectionChange de las dependencias
   const calculateTotal = () => {
     return selectedInstallments.length * installmentAmount;
   };
@@ -391,7 +376,7 @@ export default function InstallmentsTable({
 
       {/* Summary Footer */}
       {selectedInstallments.length > 0 && (
-        <div className="bg-gradient-to-r from-indigo-50 to-indigo-100 border-2 border-indigo-200 rounded-lg p-5 shadow-sm">
+        <div className="bg-linear-to-r from-indigo-50 to-indigo-100 border-2 border-indigo-200 rounded-lg p-5 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <div className="text-sm font-medium text-indigo-900 mb-1">

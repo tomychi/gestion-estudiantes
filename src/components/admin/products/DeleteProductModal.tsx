@@ -1,16 +1,10 @@
 "use client";
 
-// components/admin/products/DeleteProductModal.tsx
+import { ProductWithStats } from "@/types";
 import { useState, useTransition } from "react";
 
-interface Product {
-  id: string;
-  name: string;
-  studentCount: number;
-}
-
 interface Props {
-  product: Product;
+  product: ProductWithStats;
   isOpen: boolean;
   onClose: () => void;
   onProductDeleted: (productId: string) => void;
@@ -43,7 +37,12 @@ export default function DeleteProductModal({
 
         onProductDeleted(product.id);
       } catch (err) {
-        setError("Ocurrió un error. Intentá nuevamente.");
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : "Ocurrió un error. Intentá nuevamente.";
+
+        setError(errorMessage);
       }
     });
   };
@@ -57,7 +56,7 @@ export default function DeleteProductModal({
 
   if (!isOpen) return null;
 
-  const hasStudents = product.studentCount > 0;
+  const hasStudents = product.studentCount ? product.studentCount > 0 : false;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -98,7 +97,7 @@ export default function DeleteProductModal({
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
               <div className="flex gap-3">
                 <svg
-                  className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5"
+                  className="w-5 h-5 text-red-600 shrink-0 mt-0.5"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                 >
@@ -122,7 +121,7 @@ export default function DeleteProductModal({
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
               <div className="flex gap-3">
                 <svg
-                  className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5"
+                  className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                 >

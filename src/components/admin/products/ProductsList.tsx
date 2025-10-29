@@ -4,33 +4,27 @@ import { useState } from "react";
 import CreateProductModal from "./CreateProductModal";
 import EditProductModal from "./EditProductModal";
 import DeleteProductModal from "./DeleteProductModal";
-
-interface Product {
-  id: string;
-  name: string;
-  description: string | null;
-  basePrice: number;
-  currentPrice: number;
-  studentCount: number;
-  createdAt: string;
-}
+import { ProductWithStats } from "@/types";
 
 interface Props {
-  products: Product[];
+  products: ProductWithStats[];
 }
 
 export default function ProductsList({ products: initialProducts }: Props) {
   const [products, setProducts] = useState(initialProducts);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
+  const [editingProduct, setEditingProduct] = useState<ProductWithStats | null>(
+    null,
+  );
+  const [deletingProduct, setDeletingProduct] =
+    useState<ProductWithStats | null>(null);
 
-  const handleProductCreated = (newProduct: Product) => {
+  const handleProductCreated = (newProduct: ProductWithStats) => {
     setProducts([...products, { ...newProduct, studentCount: 0 }]);
     setIsCreateModalOpen(false);
   };
 
-  const handleProductUpdated = (updatedProduct: Product) => {
+  const handleProductUpdated = (updatedProduct: ProductWithStats) => {
     setProducts(
       products.map((p) =>
         p.id === updatedProduct.id
@@ -80,7 +74,7 @@ export default function ProductsList({ products: initialProducts }: Props) {
               className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow overflow-hidden"
             >
               <div className="p-6">
-                {/* Product Header */}
+                {/* ProductWithStats Header */}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
@@ -97,7 +91,7 @@ export default function ProductsList({ products: initialProducts }: Props) {
                 </div>
 
                 {/* Prices */}
-                <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg p-4 mb-4">
+                <div className="bg-linear-to-br from-indigo-50 to-purple-50 rounded-lg p-4 mb-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <p className="text-xs text-gray-600 mb-1">Precio Base</p>

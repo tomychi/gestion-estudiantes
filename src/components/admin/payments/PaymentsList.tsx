@@ -4,53 +4,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import PaymentReviewModal from "./PaymentReviewModal";
-
-interface Payment {
-  id: string;
-  amount: number;
-  status: string;
-  installmentNumber: number | null;
-  receiptUrl: string | null;
-  transactionRef: string | null;
-  notes: string | null;
-  rejectionReason: string | null;
-  submittedAt: string;
-  reviewedAt: string | null;
-  paymentDate: string | null;
-  user: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    dni: string;
-    email: string | null;
-    totalAmount: number;
-    paidAmount: number;
-    balance: number;
-    installments: number;
-    schoolDivision: {
-      id: string;
-      division: string;
-      year: number;
-      school: {
-        id: string;
-        name: string;
-      };
-    } | null;
-    product: {
-      id: string;
-      name: string;
-    };
-  };
-}
-
-interface School {
-  id: string;
-  name: string;
-}
+import { PaymentWithUser, SchoolBasic } from "@/types";
 
 interface Props {
-  initialPayments: Payment[];
-  schools: School[];
+  initialPayments: PaymentWithUser[];
+  schools: SchoolBasic[];
   adminId: string;
 }
 
@@ -60,9 +18,12 @@ export default function PaymentsList({
   adminId,
 }: Props) {
   const router = useRouter();
-  const [payments, setPayments] = useState(initialPayments);
-  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
-  const [selectedPayments, setSelectedPayments] = useState<Payment[]>([]); // Array of related payments
+  const payments = initialPayments;
+  const [selectedPayment, setSelectedPayment] =
+    useState<PaymentWithUser | null>(null);
+  const [selectedPayments, setSelectedPayments] = useState<PaymentWithUser[]>(
+    [],
+  ); // Array of related payments
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
   // Filters
@@ -99,10 +60,10 @@ export default function PaymentsList({
       acc[ref].push(payment);
       return acc;
     },
-    {} as Record<string, Payment[]>,
+    {} as Record<string, PaymentWithUser[]>,
   );
 
-  const handleReviewClick = (payment: Payment) => {
+  const handleReviewClick = (payment: PaymentWithUser) => {
     // Find all payments with the same transaction reference
     const relatedPayments = payments.filter(
       (p) => p.transactionRef === payment.transactionRef,
@@ -273,7 +234,7 @@ export default function PaymentsList({
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                          <div className="shrink-0 h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center">
                             <span className="text-indigo-600 font-semibold text-sm">
                               {firstPayment.user.firstName[0]}
                               {firstPayment.user.lastName[0]}

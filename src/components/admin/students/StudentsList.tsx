@@ -6,50 +6,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import EditStudentModal from "./EditStudentModal";
 import QuickSizeModal from "./QuickSizeModal";
 import { normalizeForSearch } from "@/lib/utils/search";
-
-interface Student {
-  id: string;
-  firstName: string;
-  lastName: string;
-  dni: string;
-  email: string | null;
-  phone: string | null;
-  size: string | null;
-  totalAmount: number;
-  paidAmount: number;
-  balance: number;
-  installments: number;
-  schoolDivision: {
-    id: string;
-    division: string;
-    year: number;
-    school: {
-      id: string;
-      name: string;
-    };
-  } | null;
-  product: {
-    id: string;
-    name: string;
-  };
-}
-
-interface School {
-  id: string;
-  name: string;
-}
-
-interface Product {
-  id: string;
-  name: string;
-}
+import type { SerializedUserWithRelations, School, Product } from "@/types";
 
 interface Props {
-  students: Student[];
+  students: SerializedUserWithRelations[];
   schools: School[];
   products: Product[];
 }
-
 export default function StudentsList({
   students: initialStudents,
   schools,
@@ -69,11 +32,13 @@ export default function StudentsList({
 
   // Edit modal state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [selectedStudent, setSelectedStudent] =
+    useState<SerializedUserWithRelations | null>(null);
 
   // Quick size modal state
   const [isQuickSizeModalOpen, setIsQuickSizeModalOpen] = useState(false);
-  const [sizeEditStudent, setSizeEditStudent] = useState<Student | null>(null);
+  const [sizeEditStudent, setSizeEditStudent] =
+    useState<SerializedUserWithRelations | null>(null);
 
   // Get division info if filtering
   const [divisionInfo, setDivisionInfo] = useState<{
@@ -131,17 +96,12 @@ export default function StudentsList({
     return "text-gray-600";
   };
 
-  const handleEditClick = (student: Student) => {
-    setSelectedStudent(student);
-    setIsEditModalOpen(true);
-  };
-
   const handleCloseEditModal = () => {
     setIsEditModalOpen(false);
     setSelectedStudent(null);
   };
 
-  const handleSizeClick = (student: Student) => {
+  const handleSizeClick = (student: SerializedUserWithRelations) => {
     setSizeEditStudent(student);
     setIsQuickSizeModalOpen(true);
   };
@@ -396,14 +356,15 @@ export default function StudentsList({
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Saldo
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Acciones
-                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredStudents.map((student) => (
-                  <tr key={student.id} className="hover:bg-gray-50">
+                  <tr
+                    key={student.id}
+                    onClick={() => router.push(`/admin/students/${student.id}`)}
+                    className="hover:bg-gray-50 cursor-pointer transition-colors"
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="shrink-0 h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center">
@@ -442,7 +403,10 @@ export default function StudentsList({
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {student.product.name}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td
+                      className="px-6 py-4 whitespace-nowrap"
+                      onClick={(e) => e.stopPropagation()} // Evita que se abra el detalle al editar talle
+                    >
                       {student.size ? (
                         <button
                           onClick={() => handleSizeClick(student)}
@@ -483,23 +447,6 @@ export default function StudentsList({
                         <div className="text-gray-500 text-xs">
                           de ${student.totalAmount.toLocaleString("es-AR")}
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleEditClick(student)}
-                          className="text-indigo-600 hover:text-indigo-900 font-medium"
-                        >
-                          Editar
-                        </button>
-                        <span className="text-gray-300">|</span>
-                        <Link
-                          href={`/admin/students/${student.id}`}
-                          className="text-gray-600 hover:text-gray-900 font-medium"
-                        >
-                          Ver detalles
-                        </Link>
                       </div>
                     </td>
                   </tr>

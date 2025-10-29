@@ -61,7 +61,12 @@ export default function SetupAdminForm() {
         // Redirect to login
         router.push("/login?setup=success");
       } catch (err) {
-        setError("Ocurrió un error. Intentá nuevamente.");
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : "Ocurrió un error.  Intentá nuevamente.";
+
+        setError(errorMessage);
       }
     });
   };
@@ -72,7 +77,7 @@ export default function SetupAdminForm() {
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
           <svg
-            className="w-5 h-5 flex-shrink-0"
+            className="w-5 h-5 shrink-0"
             fill="currentColor"
             viewBox="0 0 20 20"
           >

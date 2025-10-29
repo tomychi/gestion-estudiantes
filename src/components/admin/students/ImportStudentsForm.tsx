@@ -1,41 +1,21 @@
 "use client";
 
-// components/admin/students/ImportStudentsForm.tsx
 import { useState, useTransition } from "react";
 import * as XLSX from "xlsx";
 import { useRouter } from "next/navigation";
-
-interface School {
-  id: string;
-  name: string;
-}
-
-interface Product {
-  id: string;
-  name: string;
-  currentPrice: number;
-}
+import { SchoolBasic, ProductBasic, ParsedStudent, ImportData } from "@/types";
 
 interface Props {
-  schools: School[];
-  products: Product[];
+  schools: SchoolBasic[];
+  products: ProductBasic[];
   adminId: string;
 }
 
-interface ParsedStudent {
-  firstName: string;
-  lastName: string;
-  dni: string;
-  size?: string;
-  email?: string;
-  phone?: string;
-}
-
-interface ImportData {
-  school: string;
-  division: string;
-  year: number;
-  students: ParsedStudent[];
+interface ExcelRow {
+  Nombre?: string | number;
+  Apellido?: string | number;
+  DNI?: string | number;
+  [key: string]: string | number | undefined; // Para otras columnas opcionales
 }
 
 export default function ImportStudentsForm({
@@ -105,8 +85,8 @@ export default function ImportStudentsForm({
         defval: "",
       });
 
-      const students: ParsedStudent[] = jsonData
-        .map((row: any) => ({
+      const students: ParsedStudent[] = (jsonData as ExcelRow[])
+        .map((row) => ({
           firstName: row["Nombre"]?.toString().trim() || "",
           lastName: row["Apellido"]?.toString().trim() || "",
           dni: row["DNI"]?.toString().trim() || "",
@@ -139,7 +119,8 @@ export default function ImportStudentsForm({
       });
       setEditableStudents(students);
     } catch (err) {
-      setError("Error al leer el archivo.");
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(errorMessage || "Error al leer el archivo Excel.");
     }
   };
 
@@ -158,6 +139,29 @@ export default function ImportStudentsForm({
     const product = products.find((p) => p.id === productId);
     if (product) {
       setTotalAmount(product.currentPrice.toString());
+    }
+  };
+
+  const handleAddStudent = () => {
+    const newStudent: ParsedStudent = {
+      firstName: "",
+      lastName: "",
+      dni: "",
+      size: "",
+      email: "",
+      phone: "",
+    };
+    setEditableStudents([...editableStudents, newStudent]);
+  };
+
+  const handleRemoveStudent = (index: number) => {
+    if (editableStudents.length === 1) {
+      alert("Debe haber al menos un estudiante");
+      return;
+    }
+
+    if (confirm("¿Eliminar este estudiante de la lista?")) {
+      setEditableStudents(editableStudents.filter((_, i) => i !== index));
     }
   };
 
@@ -213,7 +217,9 @@ export default function ImportStudentsForm({
 
         router.push("/admin/students?imported=true");
       } catch (err) {
-        setError("Ocurrió un error. Intentá nuevamente.");
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        console.error("Import error:", errorMessage);
+        setError(errorMessage || "Error al importar estudiantes");
       }
     });
   };
@@ -395,13 +401,37 @@ export default function ImportStudentsForm({
 
           {/* Editable Students Table */}
           <div>
-            <p className="text-sm font-medium text-gray-700 mb-3">
-              Estudiantes:{" "}
-              <span className="text-indigo-600">{editableStudents.length}</span>
-              <span className="text-gray-500 text-xs ml-2">
-                (Podés editar cada fila)
-              </span>
-            </p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-medium text-gray-700">
+                Estudiantes:{" "}
+                <span className="text-indigo-600">
+                  {editableStudents.length}
+                </span>
+                <span className="text-gray-500 text-xs ml-2">
+                  (Podés editar cada fila)
+                </span>
+              </p>
+              <button
+                onClick={handleAddStudent}
+                className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 font-medium transition-colors"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                Agregar Estudiante
+              </button>
+            </div>
+
             <div className="max-h-96 overflow-auto border border-gray-200 rounded-lg">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50 sticky top-0">
@@ -427,6 +457,9 @@ export default function ImportStudentsForm({
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
                       Teléfono
                     </th>
+                    <th className="px-3 py-2 text-center text-xs font-medium text-gray-500">
+                      Acciones
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -446,7 +479,7 @@ export default function ImportStudentsForm({
                               e.target.value,
                             )
                           }
-                          className="w-full px-4 py-2 text-sm  border border-gray-300  focus:ring-2 focus:ring-indigo-500 rounded-lg bg-white text-gray-900 placeholder-gray-400"
+                          className="w-full px-4 py-2 text-sm border border-gray-300 focus:ring-2 focus:ring-indigo-500 rounded-lg bg-white text-gray-900 placeholder-gray-400"
                         />
                       </td>
                       <td className="px-3 py-2">
@@ -460,7 +493,7 @@ export default function ImportStudentsForm({
                               e.target.value,
                             )
                           }
-                          className="w-full px-4 py-2 text-sm  border border-gray-300  focus:ring-2 focus:ring-indigo-500 rounded-lg bg-white text-gray-900 placeholder-gray-400"
+                          className="w-full px-4 py-2 text-sm border border-gray-300 focus:ring-2 focus:ring-indigo-500 rounded-lg bg-white text-gray-900 placeholder-gray-400"
                         />
                       </td>
                       <td className="px-3 py-2">
@@ -470,7 +503,7 @@ export default function ImportStudentsForm({
                           onChange={(e) =>
                             handleStudentChange(index, "dni", e.target.value)
                           }
-                          className="w-full px-4 py-2 text-sm  border border-gray-300  focus:ring-2 focus:ring-indigo-500 rounded-lg bg-white text-gray-900 placeholder-gray-400"
+                          className="w-full px-4 py-2 text-sm border border-gray-300 focus:ring-2 focus:ring-indigo-500 rounded-lg bg-white text-gray-900 placeholder-gray-400"
                         />
                       </td>
                       <td className="px-3 py-2">
@@ -481,7 +514,7 @@ export default function ImportStudentsForm({
                             handleStudentChange(index, "size", e.target.value)
                           }
                           placeholder="S, M, L..."
-                          className="w-full px-4 py-2 text-sm  border border-gray-300  focus:ring-2 focus:ring-indigo-500 rounded-lg bg-white text-gray-900 placeholder-gray-400"
+                          className="w-full px-4 py-2 text-sm border border-gray-300 focus:ring-2 focus:ring-indigo-500 rounded-lg bg-white text-gray-900 placeholder-gray-400"
                         />
                       </td>
                       <td className="px-3 py-2">
@@ -505,6 +538,27 @@ export default function ImportStudentsForm({
                           placeholder="opcional"
                           className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500"
                         />
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <button
+                          onClick={() => handleRemoveStudent(index)}
+                          className="inline-flex items-center justify-center p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                          title="Eliminar estudiante"
+                        >
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                        </button>
                       </td>
                     </tr>
                   ))}

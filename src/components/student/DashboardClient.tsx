@@ -4,51 +4,16 @@ import { useEffect, useState } from "react";
 import UploadPaymentModal from "./UploadPaymentModal";
 import InstallmentsTable from "./InstallmentsTable";
 import { signOut } from "next-auth/react";
-
-interface Session {
-  user: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    role: string;
-  };
-}
-
-interface User {
-  id: string;
-  firstName: string;
-  lastName: string;
-  balance: number;
-  totalAmount: number;
-  paidAmount: number;
-  installments: number;
-  size: string | null;
-  schoolDivision: {
-    division: string;
-    year: number;
-    school: {
-      name: string;
-    };
-  } | null;
-  product: {
-    name: string;
-    description: string;
-  };
-}
-
-interface Payment {
-  id: string;
-  amount: number;
-  status: string;
-  installmentNumber: number | null;
-  submittedAt: string;
-  rejectionReason?: string;
-}
+import {
+  SerializedPayment,
+  SerializedUserWithRelations,
+  Session,
+} from "@/types";
 
 interface Props {
   session: Session;
-  user: User;
-  payments: Payment[];
+  user: SerializedUserWithRelations;
+  payments: SerializedPayment[];
 }
 
 export default function DashboardClient({ session, user, payments }: Props) {
@@ -170,7 +135,7 @@ export default function DashboardClient({ session, user, payments }: Props) {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Balance Card con barra de progreso */}
-        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-xl p-8 text-white mb-8">
+        <div className="bg-linear-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-xl p-8 text-white mb-8">
           <h2 className="text-lg font-medium opacity-90 mb-2">Tu Saldo</h2>
           <div className="flex items-baseline gap-4 mb-6">
             <span className="text-5xl font-bold">
