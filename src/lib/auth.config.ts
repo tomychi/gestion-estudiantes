@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
+import { UserRole } from "@/types"; // ← Importar UserRole
 
 // Schema validation for login
 const loginSchema = z.object({
@@ -18,17 +19,14 @@ export const authOptions: NextAuthOptions = {
         identifier: { label: "DNI or Email", type: "text" },
         password: { label: "Password", type: "password" },
       },
-
       async authorize(credentials) {
         try {
           const validatedFields = loginSchema.safeParse(credentials);
-
           if (!validatedFields.success) {
             return null;
           }
 
           const { identifier, password } = validatedFields.data;
-
           const supabase = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -85,12 +83,10 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
-
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
-
   callbacks: {
     async jwt({ token, user }) {
       // Initial sign in
@@ -102,28 +98,23 @@ export const authOptions: NextAuthOptions = {
         token.dni = user.dni;
         token.schoolDivisionId = user.schoolDivisionId;
       }
-
       return token;
     },
-
     async session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.id as string;
-        session.user.role = token.role as string;
+        session.user.role = token.role as UserRole; // ← Cambio aquí
         session.user.firstName = token.firstName as string;
         session.user.lastName = token.lastName as string;
         session.user.dni = token.dni as string;
         session.user.schoolDivisionId = token.schoolDivisionId as string | null;
       }
-
       return session;
     },
   },
-
   pages: {
     signIn: "/login",
     error: "/login",
   },
-
   secret: process.env.NEXTAUTH_SECRET,
 };

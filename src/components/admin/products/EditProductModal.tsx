@@ -79,7 +79,8 @@ export default function EditProductModal({
 
         onProductUpdated(result.product);
       } catch (err) {
-        setError("Ocurrió un error. Intentá nuevamente.");
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        setError(`Ocurrió un error: ${errorMessage}`);
       }
     });
   };

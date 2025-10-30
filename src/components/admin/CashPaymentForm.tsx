@@ -1,6 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { Payment } from "@/types";
+
+interface StudentSearchResult {
+  id: string;
+  firstName: string;
+  lastName: string;
+  dni: string;
+  totalAmount: number;
+  paidAmount: number;
+  balance: number;
+  installments: number;
+}
 
 export default function CashPaymentForm() {
   const [step, setStep] = useState<"search" | "payment">("search");
@@ -9,8 +21,8 @@ export default function CashPaymentForm() {
   const [success, setSuccess] = useState("");
 
   const [dni, setDni] = useState("");
-  const [student, setStudent] = useState<any>(null);
-  const [payments, setPayments] = useState<any[]>([]);
+  const [student, setStudent] = useState<StudentSearchResult | null>(null);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [selectedInstallments, setSelectedInstallments] = useState<number[]>(
     [],
   );
@@ -54,7 +66,8 @@ export default function CashPaymentForm() {
       setPayments(paymentsData.success ? paymentsData.payments : []);
       setStep("payment");
     } catch (err) {
-      setError("Error al buscar estudiante");
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(`Ocurrió un error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -116,7 +129,8 @@ export default function CashPaymentForm() {
         setSuccess("");
       }, 2000);
     } catch (err) {
-      setError("Error al registrar el pago");
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(`Ocurrió un error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }

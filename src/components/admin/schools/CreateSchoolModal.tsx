@@ -57,7 +57,8 @@ export default function CreateSchoolModal({
         onSchoolCreated(result.school);
         reset();
       } catch (err) {
-        setError("Ocurrió un error. Intentá nuevamente.");
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        setError(`Ocurrió un error: ${errorMessage}`);
       }
     });
   };

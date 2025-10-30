@@ -77,7 +77,9 @@ export default function StudentDetailClient({
 
       window.location.reload();
     } catch (err) {
-      alert("Error de conexión");
+      const errorMessage =
+        err instanceof Error ? err.message : "Error de conexión";
+      alert(errorMessage);
     } finally {
       setApprovingPayments((prev) => {
         const newSet = new Set(prev);
@@ -112,7 +114,9 @@ export default function StudentDetailClient({
 
       window.location.reload();
     } catch (err) {
-      alert("Error de conexión");
+      const errorMessage =
+        err instanceof Error ? err.message : "Error de conexión";
+      alert(errorMessage);
     } finally {
       setRejectingPayments((prev) => {
         const newSet = new Set(prev);

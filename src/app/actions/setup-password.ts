@@ -91,7 +91,7 @@ export async function setupStudentPassword(data: SetupPasswordInput) {
     if (error instanceof z.ZodError) {
       return {
         success: false,
-        error: error.errors[0].message,
+        error: error.message,
       };
     }
 

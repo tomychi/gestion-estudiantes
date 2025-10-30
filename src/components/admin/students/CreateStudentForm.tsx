@@ -1,21 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
-import { SchoolDivision, School, Product, CreateStudentPayload } from "@/types";
+import {
+  SchoolDivision,
+  SchoolFormData,
+  ProductFormData,
+  CreateStudentPayload,
+} from "@/types";
 
 interface Props {
-  schools: School[];
-  products: Product[];
-  adminId: string;
+  schools: SchoolFormData[];
+  products: ProductFormData[];
 }
 
-export default function CreateStudentForm({
-  schools,
-  products,
-  adminId,
-}: Props) {
+export default function CreateStudentForm({ schools, products }: Props) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -30,6 +30,9 @@ export default function CreateStudentForm({
   // Divisions for selected school
   const [divisions, setDivisions] = useState<SchoolDivision[]>([]);
   const [loadingDivisions, setLoadingDivisions] = useState(false);
+
+  // Track previous product to detect changes
+  const prevProductIdRef = useRef<string | undefined>(undefined);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -71,18 +74,26 @@ export default function CreateStudentForm({
     }
   }, [formData.schoolId, schoolMode]);
 
-  // Auto-fill amount when product is selected
   useEffect(() => {
-    if (formData.productId) {
+    const productChanged = prevProductIdRef.current !== formData.productId;
+
+    if (formData.productId && productChanged) {
       const product = products.find((p) => p.id === formData.productId);
-      if (product && !formData.totalAmount) {
+
+      // Extraer currentPrice en una variable
+      const currentPrice = product?.currentPrice;
+
+      // Ahora TypeScript sabe que currentPrice existe dentro de este if
+      if (currentPrice && (!formData.totalAmount || productChanged)) {
         setFormData((prev) => ({
           ...prev,
-          totalAmount: product.currentPrice.toString(),
+          totalAmount: currentPrice.toString(),
         }));
       }
     }
-  }, [formData.productId, products]);
+
+    prevProductIdRef.current = formData.productId;
+  }, [formData.productId, formData.totalAmount, products]);
 
   const loadDivisions = async (schoolId: string) => {
     setLoadingDivisions(true);
@@ -202,7 +213,8 @@ export default function CreateStudentForm({
         }, 1500);
       }
     } catch (err) {
-      setError("Error de conexión. Intentá nuevamente.");
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(errorMessage || "Error al crear el estudiante");
       setIsSubmitting(false);
     }
   };
@@ -628,7 +640,7 @@ export default function CreateStudentForm({
               {products.map((product) => (
                 <option key={product.id} value={product.id}>
                   {product.name} - $
-                  {product.currentPrice.toLocaleString("es-AR")}
+                  {(product.currentPrice ?? 0).toLocaleString("es-AR")}
                 </option>
               ))}
             </select>

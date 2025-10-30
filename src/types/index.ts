@@ -117,7 +117,7 @@ export interface Session {
     id: string;
     firstName: string;
     lastName: string;
-    email?: string;
+    email?: string | null;
     role: UserRole;
   };
 }
@@ -264,6 +264,18 @@ export interface ProductBasic {
   id: string;
   name: string;
   currentPrice: number;
+}
+
+export interface SchoolFormData {
+  id: string;
+  name: string;
+  address?: string | null;
+}
+
+export interface ProductFormData {
+  id: string;
+  name: string;
+  currentPrice?: number;
 }
 
 // ============================================

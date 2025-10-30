@@ -119,8 +119,10 @@ export async function DELETE(
       message: "Producto eliminado exitosamente",
     });
   } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { success: false, error: "Unknown error" },
+      { success: false, error: errorMessage },
       { status: 500 },
     );
   }

@@ -79,8 +79,6 @@ export async function POST(request: Request) {
       },
     });
 
-    const isProduction = process.env.NODE_ENV === "production";
-
     return NextResponse.json({
       success: true,
       // En producción usar init_point, en desarrollo sandbox_init_point

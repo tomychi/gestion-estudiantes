@@ -75,20 +75,19 @@ export default function CashPaymentModalSingle({
   };
 
   // Fetch payments when modal opens
-  const fetchPayments = async () => {
-    try {
-      const res = await fetch(`/api/admin/students/${student.id}/payments`);
-      const data = await res.json();
-      if (data.success) {
-        setPayments(data.payments);
-      }
-    } catch (err) {
-      console.error("Error fetching payments:", err);
-    }
-  };
-
-  // Load payments when modal opens
   useEffect(() => {
+    const fetchPayments = async () => {
+      try {
+        const res = await fetch(`/api/admin/students/${student.id}/payments`);
+        const data = await res.json();
+        if (data.success) {
+          setPayments(data.payments);
+        }
+      } catch (err) {
+        console.error("Error fetching payments:", err);
+      }
+    };
+
     if (isOpen) {
       fetchPayments();
       // Reset form
@@ -161,7 +160,9 @@ export default function CashPaymentModalSingle({
         window.location.reload();
       }, 1500);
     } catch (err) {
-      setError("Error al registrar el pago");
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error("Error submitting payment:", errorMessage);
+      setError(errorMessage || "Error al registrar el pago");
     } finally {
       setLoading(false);
     }

@@ -46,18 +46,19 @@ export default function PaymentReviewModal({
     setError("");
 
     try {
-      // Approve all payments in the group
       const approvePromises = payments.map((p) =>
         fetch(`/api/admin/payments/${p.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "APPROVE" }),
+          body: JSON.stringify({
+            action: "APPROVE",
+            reviewedBy: adminId, // ← Agregar aquí
+          }),
         }).then((res) => res.json()),
       );
 
       const results = await Promise.all(approvePromises);
 
-      // Check if any failed
       const failed = results.filter((r) => !r.success);
       if (failed.length > 0) {
         setError(
@@ -69,7 +70,8 @@ export default function PaymentReviewModal({
 
       onComplete();
     } catch (err) {
-      setError("Error de conexión. Intentá nuevamente.");
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(`Error de conexión. Intentá nuevamente. ${errorMessage}`);
       setIsSubmitting(false);
     }
   };
@@ -91,7 +93,6 @@ export default function PaymentReviewModal({
     setError("");
 
     try {
-      // Reject all payments in the group
       const rejectPromises = payments.map((p) =>
         fetch(`/api/admin/payments/${p.id}`, {
           method: "PATCH",
@@ -99,13 +100,13 @@ export default function PaymentReviewModal({
           body: JSON.stringify({
             action: "REJECT",
             rejectionReason: rejectionReason.trim(),
+            reviewedBy: adminId, // ← Agregar aquí
           }),
         }).then((res) => res.json()),
       );
 
       const results = await Promise.all(rejectPromises);
 
-      // Check if any failed
       const failed = results.filter((r) => !r.success);
       if (failed.length > 0) {
         setError(
@@ -117,7 +118,8 @@ export default function PaymentReviewModal({
 
       onComplete();
     } catch (err) {
-      setError("Error de conexión. Intentá nuevamente.");
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(`Error de conexión. Intentá nuevamente. ${errorMessage}`);
       setIsSubmitting(false);
     }
   };

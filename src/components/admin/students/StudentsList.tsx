@@ -6,12 +6,16 @@ import { useRouter, useSearchParams } from "next/navigation";
 import EditStudentModal from "./EditStudentModal";
 import QuickSizeModal from "./QuickSizeModal";
 import { normalizeForSearch } from "@/lib/utils/search";
-import type { SerializedUserWithRelations, School, Product } from "@/types";
+import type {
+  SerializedUserWithRelations,
+  SchoolFormData,
+  ProductFormData,
+} from "@/types";
 
 interface Props {
   students: SerializedUserWithRelations[];
-  schools: School[];
-  products: Product[];
+  schools: SchoolFormData[];
+  products: ProductFormData[];
 }
 export default function StudentsList({
   students: initialStudents,

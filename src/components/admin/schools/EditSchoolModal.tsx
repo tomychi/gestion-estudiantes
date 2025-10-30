@@ -69,7 +69,8 @@ export default function EditSchoolModal({
 
         onSchoolUpdated(result.school);
       } catch (err) {
-        setError("Ocurrió un error. Intentá nuevamente.");
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        setError(`Ocurrió un error: ${errorMessage}`);
       }
     });
   };

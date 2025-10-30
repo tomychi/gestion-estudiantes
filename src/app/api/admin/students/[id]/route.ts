@@ -1,9 +1,25 @@
-// app/api/admin/students/[id]/route.ts
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth.config";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+
+interface UserUpdateData {
+  firstName?: string;
+  lastName?: string;
+  dni?: string;
+  email?: string | null;
+  phone?: string | null;
+  size?: string | null;
+  schoolDivisionId?: string | null;
+  productId?: string;
+  totalAmount?: number;
+  paidAmount?: number;
+  balance?: number;
+  installments?: number;
+  notes?: string | null;
+  updatedAt: string;
+}
 
 // Validation schema for updates
 const updateStudentSchema = z.object({
@@ -17,7 +33,7 @@ const updateStudentSchema = z.object({
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> }, // ← Cambio aquí
 ) {
   try {
     // 1. Authenticate admin
@@ -30,8 +46,9 @@ export async function PATCH(
       );
     }
 
-    // 2. Validate student ID
-    const studentId = params.id;
+    // 2. Await params and validate student ID
+    const { id: studentId } = await params; // ← Cambio aquí
+
     if (!studentId) {
       return NextResponse.json(
         { success: false, error: "Student ID is required" },
@@ -65,7 +82,7 @@ export async function PATCH(
     }
 
     // 6. Prepare update data (only include fields that were provided)
-    const updateData: Record<string, any> = {
+    const updateData: UserUpdateData = {
       updatedAt: new Date().toISOString(),
     };
 
@@ -186,7 +203,7 @@ export async function PATCH(
 // GET single student details
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> }, // ← Cambio aquí
 ) {
   try {
     // 1. Authenticate
@@ -199,8 +216,9 @@ export async function GET(
       );
     }
 
-    // 2. Validate student ID
-    const studentId = params.id;
+    // 2. Await params and validate student ID
+    const { id: studentId } = await params; // ← Cambio aquí
+
     if (!studentId) {
       return NextResponse.json(
         { success: false, error: "Student ID is required" },

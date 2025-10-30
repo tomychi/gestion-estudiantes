@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Product } from "@/types";
 
 const createProductSchema = z.object({
   name: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
@@ -17,7 +18,7 @@ type CreateProductFormData = z.infer<typeof createProductSchema>;
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onProductCreated: (product: any) => void;
+  onProductCreated: (product: Product) => void;
 }
 
 export default function CreateProductModal({
@@ -62,7 +63,8 @@ export default function CreateProductModal({
         onProductCreated(result.product);
         reset();
       } catch (err) {
-        setError("Ocurrió un error. Intentá nuevamente.");
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        setError(`Ocurrió un error: ${errorMessage}`);
       }
     });
   };

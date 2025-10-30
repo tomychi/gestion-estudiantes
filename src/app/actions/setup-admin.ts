@@ -33,6 +33,14 @@ export async function createFirstAdmin(data: SetupAdminInput) {
       .limit(1)
       .single();
 
+    // If there's an error that's NOT "no rows returned", it's a real error
+    if (checkError && checkError.code !== "PGRST116") {
+      return {
+        success: false,
+        error: "Error al verificar administradores existentes",
+      };
+    }
+
     if (existingAdmin) {
       return {
         success: false,
@@ -174,9 +182,17 @@ export async function checkAdminExists() {
       .limit(1)
       .single();
 
+    // PGRST116 means "no rows returned", which is expected when no admin exists
+    if (error && error.code !== "PGRST116") {
+      return {
+        exists: false,
+        error: error.message,
+      };
+    }
+
     return {
       exists: !!data,
-      error: error?.message,
+      error: undefined,
     };
   } catch (error) {
     return {
