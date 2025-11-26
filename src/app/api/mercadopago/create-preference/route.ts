@@ -41,44 +41,49 @@ export async function POST(request: Request) {
     }
 
     const baseUrl = getBaseUrl();
-
     console.log("📍 Base URL:", baseUrl);
 
-    // Crear preferencia
-    const preference = await new Preference(mercadopago).create({
-      body: {
-        items: [
-          {
-            id: user.product.id,
-            title: `${user.product.name} - Cuotas ${installments.join(", ")}`,
-            quantity: 1,
-            unit_price: totalAmount,
-            currency_id: "ARS",
-          },
-        ],
-        // ✅ CRÍTICO: external_reference como STRING (no objeto JSON)
-        external_reference: JSON.stringify({
-          userId: user.id,
-          installments: installments,
-          amount: totalAmount,
-        }),
-        // También en metadata por las dudas
-        metadata: {
-          user_id: user.id,
-          installments: installments.join(","),
+    // 🔍 DEBUG: Preparar el body del preference
+    const preferenceBody = {
+      items: [
+        {
+          id: user.product.id,
+          title: `${user.product.name} - Cuotas ${installments.join(", ")}`,
+          quantity: 1,
+          unit_price: totalAmount,
+          currency_id: "ARS",
         },
-        // Notification URL
-        notification_url: `${baseUrl}/api/mercadopago/webhook/`,
-        // Back URLs
-        back_urls: {
-          success: `${baseUrl}/dashboard?payment=success`,
-          failure: `${baseUrl}/dashboard?payment=failure`,
-          pending: `${baseUrl}/dashboard?payment=pending`,
-        },
-        auto_return: "approved",
+      ],
+      external_reference: JSON.stringify({
+        userId: user.id,
+        installments: installments,
+        amount: totalAmount,
+      }),
+      metadata: {
+        user_id: user.id,
+        installments: installments.join(","),
       },
+      notification_url: `${baseUrl}/api/mercadopago/webhook/`,
+      back_urls: {
+        success: `${baseUrl}/dashboard?payment=success`,
+        failure: `${baseUrl}/dashboard?payment=failure`,
+        pending: `${baseUrl}/dashboard?payment=pending`,
+      },
+      auto_return: "approved",
+    };
+
+    console.log(
+      "🔍 Preference Body que se enviará a MP:",
+      JSON.stringify(preferenceBody, null, 2),
+    );
+
+    // Crear preferencia con el body que preparamos
+    const preference = await new Preference(mercadopago).create({
+      body: preferenceBody,
     });
 
+    console.log("✅ Preference ID:", preference.id);
+    console.log("🔗 Sandbox Init Point:", preference.sandbox_init_point);
     return NextResponse.json({
       success: true,
       // En producción usar init_point, en desarrollo sandbox_init_point

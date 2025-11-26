@@ -9,6 +9,7 @@ interface Props {
   existingPayments: SerializedPayment[];
   onSelectionChange: (selectedInstallments: number[]) => void;
   disabled?: boolean;
+  userCreatedAt: string; // 🆕 NUEVO
 }
 
 export default function InstallmentsTable({
@@ -17,6 +18,7 @@ export default function InstallmentsTable({
   existingPayments,
   onSelectionChange,
   disabled = false,
+  userCreatedAt,
 }: Props) {
   const [selectedInstallments, setSelectedInstallments] = useState<number[]>(
     [],
@@ -72,6 +74,56 @@ export default function InstallmentsTable({
     return selectedInstallments.length * installmentAmount;
   };
 
+  // Calculate due date for each installment
+  const getDueDate = (installmentNum: number): Date | null => {
+    if (!userCreatedAt) return null;
+
+    const createdAt = new Date(userCreatedAt);
+    const dueDay = 15; // TODO: Get from settings API
+
+    // First installment always due next month, rest follow sequentially
+    const monthsToAdd = installmentNum; // Installment 1 = +1 month, 2 = +2 months, etc.
+
+    const dueDate = new Date(createdAt);
+    dueDate.setMonth(dueDate.getMonth() + monthsToAdd);
+    dueDate.setDate(dueDay);
+
+    return dueDate;
+  };
+
+  const isOverdue = (installmentNum: number): boolean => {
+    const dueDate = getDueDate(installmentNum);
+    if (!dueDate) return false;
+
+    const isPaid = paidInstallments.has(installmentNum);
+    const isPending = pendingInstallments.has(installmentNum);
+
+    return !isPaid && !isPending && new Date() > dueDate;
+  };
+
+  const isDueSoon = (installmentNum: number): boolean => {
+    const dueDate = getDueDate(installmentNum);
+    if (!dueDate) return false;
+
+    const isPaid = paidInstallments.has(installmentNum);
+    const isPending = pendingInstallments.has(installmentNum);
+
+    if (isPaid || isPending) return false;
+
+    const today = new Date();
+    const daysUntilDue = Math.ceil(
+      (dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+    );
+
+    return daysUntilDue > 0 && daysUntilDue <= 7;
+  };
+
+  const formatDueDate = (installmentNum: number): string => {
+    const dueDate = getDueDate(installmentNum);
+    if (!dueDate) return "-";
+    return dueDate.toLocaleDateString("es-AR");
+  };
+
   return (
     <div className="space-y-4">
       {/* Table Header */}
@@ -120,6 +172,12 @@ export default function InstallmentsTable({
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
                 Estado
+              </th>
+              <th
+                scope="col"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                Vencimiento
               </th>
               <th
                 scope="col"
@@ -242,6 +300,54 @@ export default function InstallmentsTable({
                               ? "Seleccionada"
                               : "Pendiente"}
                       </span>
+                    </td>
+
+                    {/* Vencimiento / Fecha de Pago */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {isPaid ? (
+                        <div className="text-sm text-gray-500">
+                          Pagada: {paymentDate}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-1">
+                          <div className="text-sm text-gray-900">
+                            {formatDueDate(installmentNum)}
+                          </div>
+                          {isOverdue(installmentNum) && (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600">
+                              <svg
+                                className="w-3 h-3"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                              ¡Vencida!
+                            </span>
+                          )}
+                          {isDueSoon(installmentNum) &&
+                            !isOverdue(installmentNum) && (
+                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-orange-600">
+                                <svg
+                                  className="w-3 h-3"
+                                  fill="currentColor"
+                                  viewBox="0 0 20 20"
+                                >
+                                  <path
+                                    fillRule="evenodd"
+                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+                                    clipRule="evenodd"
+                                  />
+                                </svg>
+                                Vence pronto
+                              </span>
+                            )}
+                        </div>
+                      )}
                     </td>
 
                     {/* Payment Date */}

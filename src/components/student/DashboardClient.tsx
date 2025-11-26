@@ -284,13 +284,55 @@ export default function DashboardClient({ session, user, payments }: Props) {
               )}
             </button>
           </div>
+          {/* Overdue Alert */}
+          {(() => {
+            const getDueDate = (installmentNum: number): Date => {
+              const createdAt = new Date(user.createdAt);
+              const dueDay = 15; // TODO: Get from settings
 
+              // First installment always due next month, rest follow sequentially
+              const monthsToAdd = installmentNum; // Installment 1 = +1 month, 2 = +2 months, etc.
+
+              const dueDate = new Date(createdAt);
+              dueDate.setMonth(dueDate.getMonth() + monthsToAdd);
+              dueDate.setDate(dueDay);
+
+              return dueDate;
+            };
+
+            const hasOverdueInstallments = Array.from(
+              { length: user.installments },
+              (_, i) => i + 1,
+            ).some((installmentNum) => {
+              const isPaid = payments.some(
+                (p) =>
+                  p.installmentNumber === installmentNum &&
+                  p.status === "APPROVED",
+              );
+              const isPending = payments.some(
+                (p) =>
+                  p.installmentNumber === installmentNum &&
+                  p.status === "PENDING",
+              );
+              const dueDate = getDueDate(installmentNum);
+              return !isPaid && !isPending && new Date() > dueDate;
+            });
+
+            return (
+              hasOverdueInstallments && (
+                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+                  {/* ... resto del código ... */}
+                </div>
+              )
+            );
+          })()}
           {/* Installments Table Component */}
           <InstallmentsTable
             totalInstallments={user.installments}
             installmentAmount={installmentAmount}
             existingPayments={payments}
             onSelectionChange={handleInstallmentsSelection}
+            userCreatedAt={user.createdAt}
           />
         </div>
 

@@ -105,7 +105,7 @@ export default function SetupAdminForm() {
           type="text"
           placeholder="Juan"
           disabled={isPending}
-          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${
+          className={`w-full px-4 py-2 pr-10 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
             errors.firstName
               ? "border-red-300 bg-red-50"
               : "border-gray-300 bg-white"
@@ -132,7 +132,7 @@ export default function SetupAdminForm() {
           type="text"
           placeholder="Pérez"
           disabled={isPending}
-          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${
+          className={`w-full px-4 py-2 pr-10 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
             errors.lastName
               ? "border-red-300 bg-red-50"
               : "border-gray-300 bg-white"
@@ -158,7 +158,7 @@ export default function SetupAdminForm() {
           placeholder="12345678"
           maxLength={8}
           disabled={isPending}
-          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${
+          className={`w-full px-4 py-2 pr-10 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
             errors.dni ? "border-red-300 bg-red-50" : "border-gray-300 bg-white"
           } ${isPending ? "opacity-50 cursor-not-allowed" : ""}`}
         />
@@ -181,7 +181,7 @@ export default function SetupAdminForm() {
           type="email"
           placeholder="admin@ejemplo.com"
           disabled={isPending}
-          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${
+          className={`w-full px-4 py-2 pr-10 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
             errors.email
               ? "border-red-300 bg-red-50"
               : "border-gray-300 bg-white"
@@ -207,7 +207,7 @@ export default function SetupAdminForm() {
             type={showPassword ? "text" : "password"}
             placeholder="Mínimo 8 caracteres"
             disabled={isPending}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors pr-10 ${
+            className={`w-full px-4 py-2 pr-10 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent${
               errors.password
                 ? "border-red-300 bg-red-50"
                 : "border-gray-300 bg-white"
@@ -276,7 +276,7 @@ export default function SetupAdminForm() {
             type={showConfirmPassword ? "text" : "password"}
             placeholder="Repetí tu contraseña"
             disabled={isPending}
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors pr-10 ${
+            className={`w-full px-4 py-2 pr-10 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
               errors.confirmPassword
                 ? "border-red-300 bg-red-50"
                 : "border-gray-300 bg-white"

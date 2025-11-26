@@ -85,6 +85,9 @@ export interface Payment {
   reviewedBy: string | null;
   createdAt: Date;
   updatedAt: Date;
+  dueDate?: Date | null; // 🆕 NUEVO
+  lateFeeAmount?: number; // 🆕 NUEVO
+  isOverdue?: boolean;
 }
 
 // ============================================

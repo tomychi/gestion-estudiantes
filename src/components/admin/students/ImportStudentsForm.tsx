@@ -36,6 +36,12 @@ export default function ImportStudentsForm({
   const [totalAmount, setTotalAmount] = useState<string>("");
   const [installments, setInstallments] = useState<number>(3);
 
+  // create schools
+  const [showCreateSchool, setShowCreateSchool] = useState(false);
+  const [newSchoolName, setNewSchoolName] = useState("");
+  const [newSchoolAddress, setNewSchoolAddress] = useState("");
+  const [creatingSchool, setCreatingSchool] = useState(false);
+
   const downloadTemplate = () => {
     const wb = XLSX.utils.book_new();
 
@@ -171,6 +177,11 @@ export default function ImportStudentsForm({
       return;
     }
 
+    if (showCreateSchool) {
+      setError("Primero creá el colegio o seleccioná uno existente");
+      return;
+    }
+
     if (
       !selectedSchool ||
       !importData.division ||
@@ -295,23 +306,191 @@ export default function ImportStudentsForm({
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Colegio *{" "}
                 {importData.school && (
-                  <span className="text-xs text-gray-800">
-                    (Detectado: {importData.school})
+                  <span className="text-xs text-gray-500">
+                    (Detectado:{" "}
+                    <span className="font-semibold text-gray-800">
+                      {importData.school}
+                    </span>
+                    )
                   </span>
                 )}
               </label>
-              <select
-                value={selectedSchool}
-                onChange={(e) => setSelectedSchool(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 placeholder-gray-400"
-              >
-                <option value="">Seleccionar colegio...</option>
-                {schools.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
+
+              {!showCreateSchool ? (
+                <div className="space-y-2">
+                  <select
+                    value={selectedSchool}
+                    onChange={(e) => {
+                      if (e.target.value === "CREATE_NEW") {
+                        setShowCreateSchool(true);
+                        setNewSchoolName(importData.school || "");
+                        return;
+                      }
+                      setSelectedSchool(e.target.value);
+                    }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 placeholder-gray-400"
+                  >
+                    <option value="">Seleccionar colegio...</option>
+                    {schools.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                    <option
+                      value="CREATE_NEW"
+                      className="font-semibold text-indigo-600"
+                    >
+                      ➕ Crear nuevo colegio
+                    </option>
+                  </select>
+
+                  {importData.school && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCreateSchool(true);
+                        setNewSchoolName(importData.school);
+                      }}
+                      className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                    >
+                      ¿No encontrás el colegio? Crear nuevo colegio
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium text-indigo-900">
+                      Crear nuevo colegio
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCreateSchool(false);
+                        setNewSchoolName("");
+                        setNewSchoolAddress("");
+                      }}
+                      className="text-sm text-gray-600 hover:text-gray-800"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Nombre del colegio *
+                    </label>
+                    <input
+                      type="text"
+                      value={newSchoolName}
+                      onChange={(e) => setNewSchoolName(e.target.value)}
+                      placeholder="Colegio Nacional Buenos Aires"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Dirección (opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={newSchoolAddress}
+                      onChange={(e) => setNewSchoolAddress(e.target.value)}
+                      placeholder="Av. Corrientes 1234"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!newSchoolName.trim()) {
+                        alert("El nombre del colegio es obligatorio");
+                        return;
+                      }
+
+                      setCreatingSchool(true);
+                      try {
+                        const res = await fetch("/api/admin/schools", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            name: newSchoolName.trim(),
+                            address: newSchoolAddress.trim() || null,
+                          }),
+                        });
+
+                        const data = await res.json();
+
+                        if (data.success && data.data) {
+                          // Add to schools list and select it
+                          schools.push({
+                            id: data.data.id,
+                            name: data.data.name,
+                          });
+                          setSelectedSchool(data.data.id);
+                          setShowCreateSchool(false);
+                          setNewSchoolName("");
+                          setNewSchoolAddress("");
+                          alert("✅ Colegio creado exitosamente");
+                        } else {
+                          alert(data.error || "Error al crear el colegio");
+                        }
+                      } catch (err) {
+                        console.error("Error:", err);
+                        alert("Error al crear el colegio");
+                      } finally {
+                        setCreatingSchool(false);
+                      }
+                    }}
+                    disabled={creatingSchool || !newSchoolName.trim()}
+                    className="w-full px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {creatingSchool ? (
+                      <>
+                        <svg
+                          className="animate-spin h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          />
+                        </svg>
+                        Creando...
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 4v16m8-8H4"
+                          />
+                        </svg>
+                        Crear Colegio
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
