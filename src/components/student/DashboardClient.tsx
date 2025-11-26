@@ -63,7 +63,7 @@ export default function DashboardClient({ session, user, payments }: Props) {
         return;
       }
 
-      // Redirect to MercadoPago checkout
+      // Redirect directly to MercadoPago checkout
       window.location.href = data.init_point;
     } catch (error) {
       console.error("Error:", error);
@@ -224,7 +224,7 @@ export default function DashboardClient({ session, user, payments }: Props) {
 
         {/* NEW: Installments Table Section */}
         <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div>
               <h3 className="text-lg font-semibold text-gray-900">
                 Gestión de Cuotas
@@ -233,57 +233,91 @@ export default function DashboardClient({ session, user, payments }: Props) {
                 Seleccioná las cuotas que querés pagar
               </p>
             </div>
-            <button
-              onClick={handleMercadoPagoPayment}
-              disabled={
-                selectedInstallmentsForPayment.length === 0 ||
-                isMercadoPagoLoading
-              }
-              className={`px-6 py-3 rounded-lg text-sm font-medium transition-all ${
-                selectedInstallmentsForPayment.length > 0 &&
-                !isMercadoPagoLoading
-                  ? "bg-[#009EE3] text-white hover:bg-[#0084C2] hover:shadow-lg active:scale-95"
-                  : "bg-gray-200 text-gray-500 cursor-not-allowed"
-              }`}
-            >
-              {isMercadoPagoLoading ? (
-                <span className="flex items-center gap-2">
-                  <svg
-                    className="animate-spin h-5 w-5"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
+
+            {/* Button Container */}
+            <div className="flex flex-col items-end gap-2">
+              <button
+                onClick={handleMercadoPagoPayment}
+                disabled={
+                  selectedInstallmentsForPayment.length === 0 ||
+                  isMercadoPagoLoading
+                }
+                className={`
+                  px-8 py-4 rounded-md
+                  text-base font-semibold
+                  transition-all duration-300
+                  flex items-center justify-center gap-2
+                  min-w-[280px] w-full sm:w-auto
+                  ${
+                    selectedInstallmentsForPayment.length > 0 &&
+                    !isMercadoPagoLoading
+                      ? "bg-[#009EE3] text-white hover:bg-[#0084C2] shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-1px_rgba(0,0,0,0.06)] hover:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-2px_rgba(0,0,0,0.05)] hover:-translate-y-0.5 active:scale-[0.98] cursor-pointer"
+                      : "bg-gray-300 text-gray-500 cursor-not-allowed opacity-60"
+                  }
+                `}
+              >
+                {isMercadoPagoLoading ? (
+                  <>
+                    <svg
+                      className="animate-spin h-5 w-5"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    Procesando...
+                  </>
+                ) : (
+                  <>
+                    {/* Logo de Mercado Pago */}
+                    <svg
+                      className="w-6 h-6 drop-shadow-sm"
+                      viewBox="0 0 256 256"
                       fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    />
-                  </svg>
-                  Procesando...
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  <svg
-                    className="w-5 h-5"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                  </svg>
-                  Pagar con Mercado Pago
-                </span>
-              )}
-            </button>
+                    >
+                      <path d="M128 24C74.98 24 32 66.98 32 120c0 53.02 42.98 96 96 96s96-42.98 96-96c0-53.02-42.98-96-96-96zm47.03 122.75c-8.54 8.54-22.39 8.54-30.93 0l-32.13-32.13c-8.54-8.54-8.54-22.39 0-30.93 8.54-8.54 22.39-8.54 30.93 0l16.67 16.67 48.67-48.67c8.54-8.54 22.39-8.54 30.93 0 8.54 8.54 8.54 22.39 0 30.93l-64.14 64.13z" />
+                    </svg>
+                    <span className="tracking-wide">
+                      Pagar con Mercado Pago
+                    </span>
+                  </>
+                )}
+              </button>
+
+              {/* Badge de seguridad */}
+              {selectedInstallmentsForPayment.length > 0 &&
+                !isMercadoPagoLoading && (
+                  <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <svg
+                      className="w-3.5 h-3.5 text-green-600"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <span>Pago 100% seguro</span>
+                  </div>
+                )}
+            </div>
           </div>
+
           {/* Overdue Alert */}
           {(() => {
             const getDueDate = (installmentNum: number): Date => {
@@ -321,11 +355,33 @@ export default function DashboardClient({ session, user, payments }: Props) {
             return (
               hasOverdueInstallments && (
                 <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-                  {/* ... resto del código ... */}
+                  <svg
+                    className="w-6 h-6 text-red-600 flex-shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                  <div>
+                    <h4 className="font-semibold text-red-900">
+                      Tenés cuotas vencidas
+                    </h4>
+                    <p className="text-sm text-red-700 mt-1">
+                      Por favor, ponete al día con tus pagos para evitar
+                      inconvenientes.
+                    </p>
+                  </div>
                 </div>
               )
             );
           })()}
+
           {/* Installments Table Component */}
           <InstallmentsTable
             totalInstallments={user.installments}

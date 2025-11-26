@@ -3,13 +3,29 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
-import { UserRole } from "@/types"; // ← Importar UserRole
+import { UserRole } from "@/types";
 
 // Schema validation for login
 const loginSchema = z.object({
   identifier: z.string().min(1, "Identifier is required"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
+
+// Helper function to get the correct URL for NextAuth
+const getAuthUrl = () => {
+  // In production (Vercel), use VERCEL_URL if NEXTAUTH_URL is not set
+  if (process.env.NODE_ENV === "production") {
+    if (process.env.NEXTAUTH_URL) {
+      return process.env.NEXTAUTH_URL;
+    }
+    if (process.env.VERCEL_URL) {
+      return `https://${process.env.VERCEL_URL}`;
+    }
+  }
+
+  // Fallback to localhost in development
+  return process.env.NEXTAUTH_URL || "http://localhost:3000";
+};
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -103,7 +119,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.id as string;
-        session.user.role = token.role as UserRole; // ← Cambio aquí
+        session.user.role = token.role as UserRole;
         session.user.firstName = token.firstName as string;
         session.user.lastName = token.lastName as string;
         session.user.dni = token.dni as string;
@@ -117,4 +133,11 @@ export const authOptions: NextAuthOptions = {
     error: "/login",
   },
   secret: process.env.NEXTAUTH_SECRET,
+  // Use dynamic URL resolution
+  ...(process.env.NODE_ENV === "production" && {
+    useSecureCookies: true,
+  }),
 };
+
+// Export the auth URL for debugging purposes
+export const authUrl = getAuthUrl();
