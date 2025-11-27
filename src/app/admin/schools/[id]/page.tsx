@@ -2,9 +2,9 @@ import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth.config";
-import { createClient } from "@supabase/supabase-js";
 import AdminLayout from "@/components/admin/AdminLayout";
 import Link from "next/link";
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 
 export const metadata: Metadata = {
   title: "Divisiones - Sistema Alas",
@@ -24,10 +24,7 @@ export default async function SchoolDivisionsPage({ params }: PageProps) {
 
   const { id: schoolId } = await params;
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
+  const supabase = createAdminClient();
 
   // Get school info
   const { data: school } = await supabase
@@ -134,7 +131,7 @@ export default async function SchoolDivisionsPage({ params }: PageProps) {
 
         {/* Summary Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
+          <div className="bg-linear-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
             <div className="flex items-center justify-between mb-2">
               <p className="text-blue-100">Total Estudiantes</p>
               <svg
@@ -156,7 +153,7 @@ export default async function SchoolDivisionsPage({ params }: PageProps) {
             </p>
           </div>
 
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
+          <div className="bg-linear-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
             <div className="flex items-center justify-between mb-2">
               <p className="text-purple-100">Total Divisiones</p>
               <svg
@@ -176,7 +173,7 @@ export default async function SchoolDivisionsPage({ params }: PageProps) {
             <p className="text-4xl font-bold">{divisionsWithStats.length}</p>
           </div>
 
-          <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
+          <div className="bg-linear-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
             <div className="flex items-center justify-between mb-2">
               <p className="text-green-100">Años Activos</p>
               <svg

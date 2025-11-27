@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
 import {
   SchoolDivision,
   SchoolFormData,
   ProductFormData,
   CreateStudentPayload,
 } from "@/types";
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 
 interface Props {
   schools: SchoolFormData[];
@@ -98,10 +98,7 @@ export default function CreateStudentForm({ schools, products }: Props) {
   const loadDivisions = async (schoolId: string) => {
     setLoadingDivisions(true);
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      );
+      const supabase = createAdminClient();
 
       const { data, error } = await supabase
         .from("SchoolDivision")

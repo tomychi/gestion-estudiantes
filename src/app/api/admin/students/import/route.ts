@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth.config";
-import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 
 // Validation schemas
 const studentSchema = z.object({
@@ -43,10 +43,7 @@ export async function POST(request: Request) {
     const validatedData = importSchema.parse(body);
 
     // 3. Initialize Supabase client
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createAdminClient();
 
     // 4. Verify school exists
     const { data: school, error: schoolError } = await supabase

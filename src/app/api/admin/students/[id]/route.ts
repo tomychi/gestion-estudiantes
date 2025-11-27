@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth.config";
-import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 
 interface UserUpdateData {
   firstName?: string;
@@ -61,10 +61,7 @@ export async function PATCH(
     const validatedData = updateStudentSchema.parse(body);
 
     // 4. Initialize Supabase client
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createAdminClient();
 
     // 5. Check if student exists
     const { data: existingStudent, error: fetchError } = await supabase
@@ -227,10 +224,7 @@ export async function GET(
     }
 
     // 3. Initialize Supabase client
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createAdminClient();
 
     // 4. Fetch student with relations
     const { data: student, error } = await supabase

@@ -1,9 +1,6 @@
-// src/app/api/mercadopago/webhook/route.ts
-// VERSIÓN QUE ACTUALIZA PAGOS EXISTENTES
-
 import { NextResponse } from "next/server";
 import { MercadoPagoConfig, Payment } from "mercadopago";
-import { createClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 
 export async function POST(request: Request) {
   try {
@@ -64,10 +61,7 @@ export async function POST(request: Request) {
     console.log("📦 Parsed reference:", { userId, installments, amount });
 
     // Initialize Supabase
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createAdminClient();
 
     // Check if payment already exists
     const { data: existingPayments } = await supabase

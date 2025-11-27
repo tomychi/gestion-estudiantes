@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth.config";
-import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 
 // Validation schema for creating a single student
 const createStudentSchema = z.object({
@@ -49,10 +49,7 @@ export async function POST(request: Request) {
     const validatedData = createStudentSchema.parse(body);
 
     // 3. Initialize Supabase client
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createAdminClient();
 
     // 4. Check if DNI already exists
     const { data: existingUser } = await supabase

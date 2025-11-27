@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth.config";
-import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 
 const updateSchoolSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
@@ -28,10 +28,7 @@ export async function PUT(
     const body = await request.json();
     const validatedData = updateSchoolSchema.parse(body);
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createAdminClient();
 
     // Check if school exists
     const { data: existing } = await supabase
@@ -119,10 +116,7 @@ export async function DELETE(
 
     const { id } = await params;
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createAdminClient();
 
     // Check if school has divisions with students
     const { data: divisions } = await supabase

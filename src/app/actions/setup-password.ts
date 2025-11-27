@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
@@ -17,10 +17,7 @@ export async function setupStudentPassword(data: SetupPasswordInput) {
     const validatedData = setupPasswordSchema.parse(data);
 
     // Create Supabase client
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createAdminClient();
 
     // Find user by DNI
     const { data: user, error: userError } = await supabase
@@ -113,10 +110,7 @@ export async function checkDNIStatus(dni: string) {
       };
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createAdminClient();
 
     // Find user by DNI
     const { data: user, error: userError } = await supabase

@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
@@ -16,14 +16,10 @@ type SetupAdminInput = z.infer<typeof setupAdminSchema>;
 
 export async function createFirstAdmin(data: SetupAdminInput) {
   try {
-    // Validate input
     const validatedData = setupAdminSchema.parse(data);
 
-    // Create Supabase client
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    // 🔥 USAR SERVICE ROLE KEY para bypasear RLS
+    const supabase = createAdminClient();
 
     // Check if any admin already exists
     const { data: existingAdmin, error: checkError } = await supabase
@@ -33,7 +29,6 @@ export async function createFirstAdmin(data: SetupAdminInput) {
       .limit(1)
       .single();
 
-    // If there's an error that's NOT "no rows returned", it's a real error
     if (checkError && checkError.code !== "PGRST116") {
       return {
         success: false,
@@ -76,23 +71,44 @@ export async function createFirstAdmin(data: SetupAdminInput) {
       };
     }
 
-    // Create a default product for admin (required by schema)
-    const { data: product, error: productError } = await supabase
+    // 🔥 BUSCAR O CREAR producto por defecto
+    let product;
+    const { data: existingProduct } = await supabase
       .from("Product")
-      .insert({
-        name: "Producto por defecto",
-        type: "BUZO",
-        description: "Producto temporal para administrador",
-        basePrice: 0,
-        currentPrice: 0,
-      })
-      .select()
+      .select("id")
+      .eq("name", "Producto Admin Dummy")
       .single();
 
-    if (productError || !product) {
+    if (existingProduct) {
+      product = existingProduct;
+    } else {
+      const { data: newProduct, error: productError } = await supabase
+        .from("Product")
+        .insert({
+          name: "Producto Admin Dummy",
+          description: "Producto temporal para administrador",
+          basePrice: 0,
+          currentPrice: 0,
+          // 🔥 QUITAR 'type' si causa problemas
+        })
+        .select()
+        .single();
+
+      if (productError) {
+        console.error("Product creation error:", productError);
+        return {
+          success: false,
+          error: `Error al crear producto: ${productError.message}`,
+        };
+      }
+
+      product = newProduct;
+    }
+
+    if (!product) {
       return {
         success: false,
-        error: "Error al crear producto por defecto",
+        error: "No se pudo obtener el producto por defecto",
       };
     }
 
@@ -118,9 +134,7 @@ export async function createFirstAdmin(data: SetupAdminInput) {
       .single();
 
     if (userError || !user) {
-      // Rollback: delete product
-      await supabase.from("Product").delete().eq("id", product.id);
-
+      console.error("User creation error:", userError);
       return {
         success: false,
         error: userError?.message || "Error al crear usuario administrador",
@@ -133,17 +147,17 @@ export async function createFirstAdmin(data: SetupAdminInput) {
       type: "credentials",
       provider: "credentials",
       providerAccountId: user.id,
-      access_token: hashedPassword, // Store hashed password here
+      access_token: hashedPassword,
     });
 
     if (accountError) {
-      // Rollback: delete user and product
+      console.error("Account creation error:", accountError);
+      // Rollback: delete user
       await supabase.from("User").delete().eq("id", user.id);
-      await supabase.from("Product").delete().eq("id", product.id);
 
       return {
         success: false,
-        error: "Error al crear credenciales de acceso",
+        error: `Error al crear credenciales: ${accountError.message}`,
       };
     }
 
@@ -156,10 +170,11 @@ export async function createFirstAdmin(data: SetupAdminInput) {
     if (error instanceof z.ZodError) {
       return {
         success: false,
-        error: error.message,
+        error: error.issues,
       };
     }
 
+    console.error("Unexpected error:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Error desconocido",
@@ -167,13 +182,9 @@ export async function createFirstAdmin(data: SetupAdminInput) {
   }
 }
 
-// Check if admin exists
 export async function checkAdminExists() {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createAdminClient();
 
     const { data, error } = await supabase
       .from("User")
@@ -182,7 +193,6 @@ export async function checkAdminExists() {
       .limit(1)
       .single();
 
-    // PGRST116 means "no rows returned", which is expected when no admin exists
     if (error && error.code !== "PGRST116") {
       return {
         exists: false,

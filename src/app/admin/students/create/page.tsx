@@ -2,10 +2,10 @@ import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth.config";
-import { createClient } from "@supabase/supabase-js";
 import AdminLayout from "@/components/admin/AdminLayout";
 import CreateStudentForm from "@/components/admin/students/CreateStudentForm";
 import Link from "next/link";
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 
 export const metadata: Metadata = {
   title: "Crear Estudiante - Sistema Alas",
@@ -19,10 +19,7 @@ export default async function CreateStudentPage() {
     redirect("/login");
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
+  const supabase = createAdminClient();
 
   // Get schools, products, and divisions for the form
   const [{ data: schools }, { data: products }] = await Promise.all([

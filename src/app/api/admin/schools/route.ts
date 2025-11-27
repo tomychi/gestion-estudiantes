@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth.config";
-import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 
 const createSchoolSchema = z.object({
   name: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
@@ -13,7 +13,6 @@ const createSchoolSchema = z.object({
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-
     if (!session || session.user.role !== "ADMIN") {
       return NextResponse.json(
         { success: false, error: "No autorizado" },
@@ -24,17 +23,14 @@ export async function POST(request: Request) {
     const body = await request.json();
     const validatedData = createSchoolSchema.parse(body);
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createAdminClient();
 
     // Check if school with same name already exists
     const { data: existing } = await supabase
       .from("School")
       .select("id")
       .eq("name", validatedData.name)
-      .single();
+      .maybeSingle(); // Use maybeSingle() instead of single()
 
     if (existing) {
       return NextResponse.json(
@@ -53,10 +49,22 @@ export async function POST(request: Request) {
       .select()
       .single();
 
-    if (error || !school) {
+    if (error) {
       console.error("Error creating school:", error);
       return NextResponse.json(
-        { success: false, error: "Error al crear el colegio" },
+        {
+          success: false,
+          error: "Error al crear el colegio",
+          details:
+            process.env.NODE_ENV === "development" ? error.message : undefined,
+        },
+        { status: 500 },
+      );
+    }
+
+    if (!school) {
+      return NextResponse.json(
+        { success: false, error: "No se pudo crear el colegio" },
         { status: 500 },
       );
     }
@@ -92,7 +100,6 @@ export async function POST(request: Request) {
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-
     if (!session || session.user.role !== "ADMIN") {
       return NextResponse.json(
         { success: false, error: "No autorizado" },
@@ -100,10 +107,7 @@ export async function GET() {
       );
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createAdminClient();
 
     const { data: schools, error } = await supabase
       .from("School")

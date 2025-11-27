@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import * as XLSX from "xlsx";
 import { useRouter } from "next/navigation";
 import { SchoolBasic, ProductBasic, ParsedStudent, ImportData } from "@/types";
+import CreateProductModal from "../products/CreateProductModal";
 
 interface Props {
   schools: SchoolBasic[];
@@ -15,7 +16,7 @@ interface ExcelRow {
   Nombre?: string | number;
   Apellido?: string | number;
   DNI?: string | number;
-  [key: string]: string | number | undefined; // Para otras columnas opcionales
+  [key: string]: string | number | undefined;
 }
 
 export default function ImportStudentsForm({
@@ -36,11 +37,15 @@ export default function ImportStudentsForm({
   const [totalAmount, setTotalAmount] = useState<string>("");
   const [installments, setInstallments] = useState<number>(3);
 
-  // create schools
+  // Create schools
   const [showCreateSchool, setShowCreateSchool] = useState(false);
   const [newSchoolName, setNewSchoolName] = useState("");
   const [newSchoolAddress, setNewSchoolAddress] = useState("");
   const [creatingSchool, setCreatingSchool] = useState(false);
+
+  // Create products - NEW
+  const [showCreateProductModal, setShowCreateProductModal] = useState(false);
+  const [localProducts, setLocalProducts] = useState<ProductBasic[]>(products);
 
   const downloadTemplate = () => {
     const wb = XLSX.utils.book_new();
@@ -77,7 +82,6 @@ export default function ImportStudentsForm({
       const workbook = XLSX.read(data);
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
 
-      // Parse metadata - valores en columna B (sin validar)
       const school = worksheet["B1"]?.v?.toString().trim() || "";
       const division = worksheet["B2"]?.v?.toString().trim() || "";
       const yearValue = worksheet["B3"]?.v;
@@ -85,7 +89,6 @@ export default function ImportStudentsForm({
         ? parseInt(yearValue.toString())
         : new Date().getFullYear();
 
-      // Parse students (starting from row 6, index 5)
       const jsonData = XLSX.utils.sheet_to_json(worksheet, {
         range: 5,
         defval: "",
@@ -107,7 +110,6 @@ export default function ImportStudentsForm({
         return;
       }
 
-      // Solo validar DNIs duplicados
       const dnis = students.map((s) => s.dni);
       const duplicateDnis = dnis.filter(
         (dni, index) => dnis.indexOf(dni) !== index,
@@ -141,11 +143,23 @@ export default function ImportStudentsForm({
   };
 
   const handleProductChange = (productId: string) => {
+    if (productId === "CREATE_NEW") {
+      setShowCreateProductModal(true);
+      return;
+    }
+
     setSelectedProduct(productId);
-    const product = products.find((p) => p.id === productId);
+    const product = localProducts.find((p) => p.id === productId);
     if (product) {
       setTotalAmount(product.currentPrice.toString());
     }
+  };
+
+  const handleProductCreated = (newProduct: ProductBasic) => {
+    setLocalProducts((prev) => [...prev, newProduct]);
+    setSelectedProduct(newProduct.id);
+    setTotalAmount(newProduct.currentPrice.toString());
+    setShowCreateProductModal(false);
   };
 
   const handleAddStudent = () => {
@@ -192,7 +206,6 @@ export default function ImportStudentsForm({
       return;
     }
 
-    // Validate all students have required fields
     const invalidStudents = editableStudents.filter(
       (s) => !s.firstName || !s.lastName || !s.dni,
     );
@@ -237,6 +250,13 @@ export default function ImportStudentsForm({
 
   return (
     <div className="space-y-6">
+      {/* Create Product Modal */}
+      <CreateProductModal
+        isOpen={showCreateProductModal}
+        onClose={() => setShowCreateProductModal(false)}
+        onProductCreated={handleProductCreated}
+      />
+
       {/* Download Template */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-3">
@@ -424,7 +444,6 @@ export default function ImportStudentsForm({
                         const data = await res.json();
 
                         if (data.success && data.data) {
-                          // Add to schools list and select it
                           schools.push({
                             id: data.data.id,
                             name: data.data.name,
@@ -540,11 +559,17 @@ export default function ImportStudentsForm({
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 placeholder-gray-400"
               >
                 <option value="">Seleccionar...</option>
-                {products.map((p) => (
+                {localProducts.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
                   </option>
                 ))}
+                <option
+                  value="CREATE_NEW"
+                  className="font-semibold text-indigo-600"
+                >
+                  ➕ Crear nuevo producto
+                </option>
               </select>
             </div>
 

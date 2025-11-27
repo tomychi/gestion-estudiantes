@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth.config";
-import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 
 const createProductSchema = z.object({
   name: z.string().min(3),
@@ -26,10 +26,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const validatedData = createProductSchema.parse(body);
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createAdminClient();
 
     const { data: product, error } = await supabase
       .from("Product")

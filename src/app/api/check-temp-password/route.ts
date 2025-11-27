@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth.config";
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 
 export async function GET() {
   try {
@@ -15,10 +15,7 @@ export async function GET() {
       );
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createAdminClient();
 
     // Get user's account
     const { data: account, error: accountError } = await supabase

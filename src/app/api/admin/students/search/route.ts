@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth.config";
-import { createClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 
 export async function GET(request: Request) {
   try {
@@ -24,10 +24,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createAdminClient();
 
     const { data: student, error } = await supabase
       .from("User")

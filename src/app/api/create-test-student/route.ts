@@ -1,14 +1,11 @@
 // app/api/create-test-student/route.ts
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 
 export async function POST() {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createAdminClient();
 
     // Create a test product first (required)
     const { data: product, error: productError } = await supabase

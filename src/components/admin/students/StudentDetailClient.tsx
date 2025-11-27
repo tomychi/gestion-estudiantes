@@ -419,11 +419,11 @@ export default function StudentDetailClient({
                 <div>
                   <p className="text-sm text-gray-600">Nombre</p>
                   <p className="font-semibold text-gray-900">
-                    {student.product.name}
+                    {student.product?.name || "Sin producto"}
                   </p>
                 </div>
-                {student.product.description && (
-                  <div>
+                {student.product?.description && (
+                  <div className="mt-2">
                     <p className="text-sm text-gray-600">Descripción</p>
                     <p className="text-sm text-gray-700">
                       {student.product.description}
@@ -433,7 +433,10 @@ export default function StudentDetailClient({
                 <div>
                   <p className="text-sm text-gray-600">Precio</p>
                   <p className="font-semibold text-gray-900">
-                    ${student.product.currentPrice.toLocaleString("es-AR")}
+                    $
+                    {(student.product?.currentPrice || 0).toLocaleString(
+                      "es-AR",
+                    )}{" "}
                   </p>
                 </div>
               </div>

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth.config";
-import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 
 const updateSettingsSchema = z.object({
   payment_due_day: z.number().min(1).max(31),
@@ -22,10 +22,7 @@ export async function GET() {
       );
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createAdminClient();
 
     const { data: settings, error } = await supabase
       .from("SystemSettings")
@@ -84,10 +81,7 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const validatedData = updateSettingsSchema.parse(body);
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createAdminClient();
 
     // Update each setting
     const updates = Object.entries(validatedData).map(([key, value]) =>

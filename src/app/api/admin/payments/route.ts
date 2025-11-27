@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth.config";
-import { createClient } from "@supabase/supabase-js";
 import { PaymentWithUser } from "@/types";
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 
 export async function GET(request: Request) {
   try {
@@ -20,10 +20,7 @@ export async function GET(request: Request) {
     const schoolId = searchParams.get("schoolId") || "";
     const limit = parseInt(searchParams.get("limit") || "50");
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createAdminClient();
 
     // Build query
     let query = supabase

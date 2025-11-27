@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 
 const changePasswordSchema = z.object({
   userId: z.string(),
@@ -14,10 +14,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const validatedData = changePasswordSchema.parse(body);
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createAdminClient();
 
     // Get user's account
     const { data: account, error: accountError } = await supabase

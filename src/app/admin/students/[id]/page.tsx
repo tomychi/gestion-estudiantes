@@ -3,10 +3,10 @@ import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth.config";
-import { createClient } from "@supabase/supabase-js";
 import AdminLayout from "@/components/admin/AdminLayout";
 import Link from "next/link";
 import StudentDetailClient from "@/components/admin/students/StudentDetailClient";
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 
 export const metadata: Metadata = {
   title: "Detalle del Estudiante - Sistema Alas",
@@ -26,10 +26,7 @@ export default async function StudentDetailPage({ params }: PageProps) {
 
   const { id: studentId } = await params;
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
+  const supabase = createAdminClient();
 
   // Get student data
   const { data: student, error: studentError } = await supabase

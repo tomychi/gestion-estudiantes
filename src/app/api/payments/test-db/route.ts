@@ -1,13 +1,9 @@
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
 export async function GET() {
   try {
     // Create direct client (bypasses middleware auth check)
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createAdminClient();
 
     // Test query - count users
     const { count, error } = await supabase

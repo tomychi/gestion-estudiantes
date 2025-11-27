@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth.config";
-import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 
 const cashPaymentSchema = z.object({
   studentDni: z.string().min(7, "DNI inválido"),
@@ -29,10 +29,7 @@ export async function POST(request: Request) {
     const receiptNumber = body.receiptNumber || undefined;
     const notes = body.notes || undefined;
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createAdminClient();
 
     const { data: student, error: studentError } = await supabase
       .from("User")

@@ -1,6 +1,5 @@
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -17,10 +16,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    );
+    const supabase = createAdminClient();
 
     // Call the stored procedure
     const { data, error } = await supabase.rpc("apply_late_fees");

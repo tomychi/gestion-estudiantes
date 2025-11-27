@@ -1,10 +1,9 @@
-// src/app/dashboard/page.tsx
 import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth.config";
-import { createClient } from "@supabase/supabase-js";
 import DashboardClient from "@/components/student/DashboardClient";
+import { createClient } from "@supabase/supabase-js";
 
 export const metadata: Metadata = {
   title: "Mi Dashboard - Sistema Alas",

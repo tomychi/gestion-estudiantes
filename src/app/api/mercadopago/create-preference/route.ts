@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth.config";
 import { MercadoPagoConfig, Preference } from "mercadopago";
-import { createClient } from "@supabase/supabase-js";
 import { isProduction, getBaseUrl } from "@/lib/utils/env";
+import { createClient } from "@supabase/supabase-js";
 
 const mercadopago = new MercadoPagoConfig({
   accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN!,
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
 
     const { installments, totalAmount } = await request.json();
 
-    // Get user data
+    // Estudiante crea su propia preferencia
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

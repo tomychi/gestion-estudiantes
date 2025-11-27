@@ -2,9 +2,9 @@ import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth.config";
-import { createClient } from "@supabase/supabase-js";
 import AdminLayout from "@/components/admin/AdminLayout";
 import ImportStudentsForm from "@/components/admin/students/ImportStudentsForm";
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 
 export const metadata: Metadata = {
   title: "Importar Estudiantes - Sistema Alas",
@@ -18,10 +18,7 @@ export default async function ImportStudentsPage() {
     redirect("/login");
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
+  const supabase = createAdminClient();
 
   // Get schools and products for validation
   const [{ data: schools }, { data: products }] = await Promise.all([

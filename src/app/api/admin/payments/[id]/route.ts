@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth.config";
-import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 
 const reviewPaymentSchema = z.object({
   action: z.enum(["APPROVE", "REJECT"]),
@@ -38,10 +38,7 @@ export async function PATCH(
       );
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createAdminClient();
 
     // Get payment details
     const { data: payment, error: paymentError } = await supabase

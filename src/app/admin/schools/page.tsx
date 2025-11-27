@@ -2,9 +2,9 @@ import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth.config";
-import { createClient } from "@supabase/supabase-js";
 import AdminLayout from "@/components/admin/AdminLayout";
 import SchoolsList from "@/components/admin/schools/SchoolsList";
+import { createAdminClient } from "@/lib/supabase/supabase-admin";
 
 export const metadata: Metadata = {
   title: "Colegios - Sistema Alas",
@@ -18,10 +18,7 @@ export default async function SchoolsPage() {
     redirect("/login");
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
+  const supabase = createAdminClient();
 
   // Get schools with division count
   const { data: schools } = await supabase
@@ -75,7 +72,7 @@ export default async function SchoolsPage() {
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex gap-3">
             <svg
-              className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5"
+              className="w-5 h-5 text-blue-600 shrink-0 mt-0.5"
               fill="currentColor"
               viewBox="0 0 20 20"
             >
