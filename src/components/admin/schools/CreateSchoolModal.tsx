@@ -54,7 +54,7 @@ export default function CreateSchoolModal({
           return;
         }
 
-        onSchoolCreated(result.school);
+        onSchoolCreated(result.data);
         reset();
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);

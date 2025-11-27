@@ -22,6 +22,12 @@ export default function SchoolsList({ schools: initialSchools }: Props) {
   );
 
   const handleSchoolCreated = (newSchool: SchoolWithStats) => {
+    // Verificar que el colegio tenga id antes de agregarlo
+    if (!newSchool.id) {
+      console.error("School created without ID");
+      return;
+    }
+
     setSchools([
       ...schools,
       { ...newSchool, studentCount: 0, divisionCount: 0 },
@@ -79,14 +85,15 @@ export default function SchoolsList({ schools: initialSchools }: Props) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {schools.map((school) => (
             <div key={school.id} className="mb-3">
-              <Link
-                href={`/admin/schools/${school.id}`}
-                className="block group-hover:opacity-90 transition-opacity"
-              >
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-indigo-300 transition-all overflow-hidden group">
-                  <div className="p-6">
-                    {/* SchoolWithStats Name  */}
-
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-indigo-300 transition-all overflow-hidden group">
+                <Link
+                  href={`/admin/schools/${school.id}`}
+                  className="block group-hover:opacity-90 transition-opacity"
+                >
+                  <div className="p-6 pb-4">
+                    {" "}
+                    {/* 👈 Cambia pb-6 a pb-4 */}
+                    {/* SchoolWithStats Name */}
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
@@ -133,9 +140,8 @@ export default function SchoolsList({ schools: initialSchools }: Props) {
                         )}
                       </div>
                     </div>
-
                     {/* Stats */}
-                    <div className="grid grid-cols-2 gap-3 mb-4 pt-4 border-t border-gray-100">
+                    <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-100">
                       <div className="bg-blue-50 rounded-lg p-3">
                         <p className="text-xs text-blue-600 font-medium mb-1">
                           Estudiantes
@@ -153,31 +159,27 @@ export default function SchoolsList({ schools: initialSchools }: Props) {
                         </p>
                       </div>
                     </div>
-
-                    {/* Actions */}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingSchool(school);
-                        }}
-                        className="flex-1 px-3 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeletingSchool(school);
-                        }}
-                        className="flex-1 px-3 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
-                      >
-                        Eliminar
-                      </button>
-                    </div>
                   </div>
+                </Link>
+
+                {/* Actions - DENTRO de la card pero FUERA del Link */}
+                <div className="flex gap-2 px-6 pb-6 pt-2">
+                  {" "}
+                  {/* 👈 Agrega pt-2 para separación */}
+                  <button
+                    onClick={() => setEditingSchool(school)}
+                    className="flex-1 px-3 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => setDeletingSchool(school)}
+                    className="flex-1 px-3 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                  >
+                    Eliminar
+                  </button>
                 </div>
-              </Link>
+              </div>
             </div>
           ))}
         </div>
