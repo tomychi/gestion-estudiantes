@@ -68,15 +68,35 @@ export default async function StudentDetailPage({ params }: PageProps) {
     { length: student.installments },
     (_, i) => {
       const installmentNum = i + 1;
-      const payment = payments?.find(
-        (p) =>
-          p.installmentNumber === installmentNum && p.status === "APPROVED",
+      const installmentAmount = student.totalAmount / student.installments;
+
+      // Sumar TODOS los pagos aprobados para esta cuota
+      const paymentsForInstallment =
+        payments?.filter(
+          (p) =>
+            p.installmentNumber === installmentNum && p.status === "APPROVED",
+        ) || [];
+
+      const totalPaidForInstallment = paymentsForInstallment.reduce(
+        (sum, p) => sum + p.amount,
+        0,
       );
+
+      // La cuota está pagada si el total pagado >= monto de la cuota
+      const isPaid = totalPaidForInstallment >= installmentAmount;
+
+      // Obtener fecha del último pago
+      const lastPayment =
+        paymentsForInstallment.length > 0
+          ? paymentsForInstallment[paymentsForInstallment.length - 1]
+          : null;
+
       return {
         number: installmentNum,
-        amount: student.totalAmount / student.installments,
-        paid: !!payment,
-        paymentDate: payment?.paymentDate || null,
+        amount: installmentAmount, // Siempre mostrar el monto fijo de la cuota
+        paid: isPaid,
+        amountPaid: totalPaidForInstallment, // 🆕 Cuánto se pagó realmente
+        paymentDate: lastPayment?.paymentDate || null,
       };
     },
   );

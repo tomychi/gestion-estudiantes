@@ -4,12 +4,14 @@ import { authOptions } from "@/lib/auth.config";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/supabase-admin";
 
-const cashPaymentSchema = z.object({
+const transferPaymentSchema = z.object({
   studentDni: z.string().min(7, "DNI inválido"),
   installments: z
     .array(z.number())
     .min(1, "Debe seleccionar al menos una cuota"),
   amount: z.number().positive("El monto debe ser positivo"),
+  transferReference: z.string().optional(), // Número de operación/referencia
+  transferDate: z.string().optional(), // Fecha de la transferencia
 });
 
 export async function POST(request: Request) {
@@ -24,9 +26,8 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const validatedData = cashPaymentSchema.parse(body);
+    const validatedData = transferPaymentSchema.parse(body);
 
-    const receiptNumber = body.receiptNumber || undefined;
     const notes = body.notes || undefined;
 
     const supabase = createAdminClient();
@@ -53,7 +54,7 @@ export async function POST(request: Request) {
     const expectedAmount =
       installmentAmount * validatedData.installments.length;
 
-    // 🆕 VALIDAR que el monto sea exacto
+    // Validate exact amount
     if (Math.abs(validatedData.amount - expectedAmount) > 0.01) {
       return NextResponse.json(
         {
@@ -97,11 +98,16 @@ export async function POST(request: Request) {
 
     // 5. Create payment records
     const now = new Date().toISOString();
-    const transactionRef = `CASH-${student.id}-${Date.now()}`;
+    const transactionRef = `TRANSFER-${student.id}-${Date.now()}`;
 
-    let paymentNotes = `💵 Pago en EFECTIVO`;
+    let paymentNotes = `🏦 Pago por TRANSFERENCIA`;
+    if (validatedData.transferReference) {
+      paymentNotes += ` | Ref: ${validatedData.transferReference}`;
+    }
+    if (validatedData.transferDate) {
+      paymentNotes += ` | Fecha: ${new Date(validatedData.transferDate).toLocaleDateString("es-AR")}`;
+    }
     if (notes) paymentNotes += ` - ${notes}`;
-    if (receiptNumber) paymentNotes += ` | Recibo: ${receiptNumber}`;
     paymentNotes += ` | Registrado por: ${session.user.firstName} ${session.user.lastName}`;
 
     const paymentRecords = validatedData.installments.map((installmentNum) => ({
@@ -112,10 +118,11 @@ export async function POST(request: Request) {
       receiptUrl: null,
       transactionRef: transactionRef,
       notes: paymentNotes,
+      paymentMethod: "TRANSFER",
       submittedAt: now,
       reviewedBy: session.user.id,
       reviewedAt: now,
-      paymentDate: now,
+      paymentDate: validatedData.transferDate || now,
     }));
 
     const { error: paymentsError } = await supabase
@@ -153,7 +160,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `Pago de $${validatedData.amount.toLocaleString("es-AR")} registrado exitosamente - Cuota(s): ${validatedData.installments.join(", ")}`,
+      message: `Transferencia de $${validatedData.amount.toLocaleString("es-AR")} registrada exitosamente - Cuota(s): ${validatedData.installments.join(", ")}`,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {

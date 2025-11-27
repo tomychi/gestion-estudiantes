@@ -3,6 +3,7 @@
 import { useState } from "react";
 import EditStudentModal from "./EditStudentModal";
 import CashPaymentModalSingle from "./CashPaymentModalSingle";
+import TransferPaymentModalSingle from "./TransferPaymentModalSingle";
 import type {
   SerializedUserWithRelations,
   SerializedPayment,
@@ -33,6 +34,7 @@ export default function StudentDetailClient({
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCashPaymentOpen, setIsCashPaymentOpen] = useState(false);
+  const [isTransferPaymentOpen, setIsTransferPaymentOpen] = useState(false);
 
   const getStatusBadge = (status: string) => {
     const styles = {
@@ -158,6 +160,25 @@ export default function StudentDetailClient({
               />
             </svg>
             💵 Pago en Efectivo
+          </button>
+          <button
+            onClick={() => setIsTransferPaymentOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+              />
+            </svg>
+            🏦 Transferencia
           </button>
           <button
             onClick={() => setIsEditModalOpen(true)}
@@ -454,7 +475,9 @@ export default function StudentDetailClient({
                     className={`flex items-center justify-between p-3 rounded-lg ${
                       inst.paid
                         ? "bg-green-50 border border-green-200"
-                        : "bg-gray-50 border border-gray-200"
+                        : inst.amountPaid > 0
+                          ? "bg-yellow-50 border border-yellow-200" // 🆕 Pago parcial
+                          : "bg-gray-50 border border-gray-200"
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -462,7 +485,9 @@ export default function StudentDetailClient({
                         className={`w-8 h-8 rounded-full flex items-center justify-center ${
                           inst.paid
                             ? "bg-green-500 text-white"
-                            : "bg-gray-300 text-gray-600"
+                            : inst.amountPaid > 0
+                              ? "bg-yellow-500 text-white" // 🆕 Pago parcial
+                              : "bg-gray-300 text-gray-600"
                         }`}
                       >
                         {inst.paid ? (
@@ -484,10 +509,21 @@ export default function StudentDetailClient({
                       <div>
                         <p
                           className={`text-sm font-medium ${
-                            inst.paid ? "text-green-900" : "text-gray-900"
+                            inst.paid
+                              ? "text-green-900"
+                              : inst.amountPaid > 0
+                                ? "text-yellow-900"
+                                : "text-gray-900"
                           }`}
                         >
                           Cuota {inst.number}
+                          {/* 🆕 Mostrar progreso si hay pago parcial */}
+                          {inst.amountPaid > 0 && !inst.paid && (
+                            <span className="ml-2 text-xs text-yellow-600">
+                              (${inst.amountPaid.toLocaleString("es-AR")} de $
+                              {inst.amount.toLocaleString("es-AR")})
+                            </span>
+                          )}
                         </p>
                         {inst.paid && inst.paymentDate && (
                           <p className="text-xs text-green-600">
@@ -500,7 +536,11 @@ export default function StudentDetailClient({
                     </div>
                     <p
                       className={`text-sm font-semibold ${
-                        inst.paid ? "text-green-700" : "text-gray-700"
+                        inst.paid
+                          ? "text-green-700"
+                          : inst.amountPaid > 0
+                            ? "text-yellow-700"
+                            : "text-gray-700"
                       }`}
                     >
                       ${inst.amount.toLocaleString("es-AR")}
@@ -701,6 +741,11 @@ export default function StudentDetailClient({
         student={student}
         isOpen={isCashPaymentOpen}
         onClose={() => setIsCashPaymentOpen(false)}
+      />
+      <TransferPaymentModalSingle
+        student={student}
+        isOpen={isTransferPaymentOpen}
+        onClose={() => setIsTransferPaymentOpen(false)}
       />
     </div>
   );

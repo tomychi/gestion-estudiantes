@@ -133,6 +133,7 @@ export interface InstallmentStatus {
   number: number;
   amount: number;
   paid: boolean;
+  amountPaid: number;
   paymentDate: string | null;
 }
 
