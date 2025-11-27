@@ -52,9 +52,12 @@ export default function SetupAdminForm() {
           email: data.email,
           password: data.password,
         });
-
         if (!result.success) {
-          setError(result.error || "Error al crear administrador");
+          // 👇 CAMBIO: Asegurar que sea string
+          const errorMessage = Array.isArray(result.error)
+            ? result.error.map((e) => e.message).join(", ")
+            : result.error || "Error al crear administrador";
+          setError(errorMessage);
           return;
         }
 

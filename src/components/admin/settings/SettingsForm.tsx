@@ -23,30 +23,28 @@ export default function SettingsForm() {
   }>({ show: false, type: "success", message: "" });
 
   useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch("/api/admin/settings");
+        const data = await res.json();
+
+        if (data.success) {
+          setSettings({
+            payment_due_day: data.settings.payment_due_day || 15,
+            late_fee_percentage: data.settings.late_fee_percentage || 10,
+            total_recalculation_percentage:
+              data.settings.total_recalculation_percentage || 0,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching settings:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchSettings();
   }, []);
-
-  const fetchSettings = async () => {
-    try {
-      const response = await fetch("/api/admin/settings");
-      const data = await response.json();
-
-      if (data.success) {
-        setSettings({
-          payment_due_day: parseInt(data.data.payment_due_day),
-          late_fee_percentage: parseFloat(data.data.late_fee_percentage),
-          total_recalculation_percentage: parseFloat(
-            data.data.total_recalculation_percentage,
-          ),
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching settings:", error);
-      showNotification("error", "Error al cargar la configuración");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -110,7 +108,7 @@ export default function SettingsForm() {
         >
           {notification.type === "success" ? (
             <svg
-              className="w-5 h-5 flex-shrink-0"
+              className="w-5 h-5 shrink-0"
               fill="currentColor"
               viewBox="0 0 20 20"
             >
@@ -122,7 +120,7 @@ export default function SettingsForm() {
             </svg>
           ) : (
             <svg
-              className="w-5 h-5 flex-shrink-0"
+              className="w-5 h-5 shrink-0"
               fill="currentColor"
               viewBox="0 0 20 20"
             >
@@ -318,7 +316,7 @@ export default function SettingsForm() {
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="flex gap-3">
           <svg
-            className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5"
+            className="w-5 h-5 text-blue-600 shrink-0 mt-0.5"
             fill="currentColor"
             viewBox="0 0 20 20"
           >
