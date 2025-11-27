@@ -20,6 +20,7 @@ export async function middleware(request: NextRequest) {
     "/api/test-db",
     "/api/create-test-student",
     "/api/mercadopago/webhook",
+    "/api/cron",
   ];
 
   const isPublicRoute = publicRoutes.some((route) =>
@@ -81,5 +82,6 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!api/cron|api/auth|api/mercadopago/webhook|_next/static|_next/image|favicon.ico).*)",
   ],
 };
