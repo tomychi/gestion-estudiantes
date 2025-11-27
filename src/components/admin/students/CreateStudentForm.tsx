@@ -8,7 +8,6 @@ import {
   ProductFormData,
   CreateStudentPayload,
 } from "@/types";
-import { createAdminClient } from "@/lib/supabase/supabase-admin";
 
 interface Props {
   schools: SchoolFormData[];
@@ -75,6 +74,18 @@ export default function CreateStudentForm({ schools, products }: Props) {
   }, [formData.schoolId, schoolMode]);
 
   useEffect(() => {
+    // Si no hay divisiones y está en modo "existing", cambiar a "new"
+    if (
+      divisionMode === "existing" &&
+      divisions.length === 0 &&
+      !loadingDivisions &&
+      formData.schoolId
+    ) {
+      setDivisionMode("new");
+    }
+  }, [divisions, loadingDivisions, divisionMode, formData.schoolId]);
+
+  useEffect(() => {
     const productChanged = prevProductIdRef.current !== formData.productId;
 
     if (formData.productId && productChanged) {
@@ -98,20 +109,18 @@ export default function CreateStudentForm({ schools, products }: Props) {
   const loadDivisions = async (schoolId: string) => {
     setLoadingDivisions(true);
     try {
-      const supabase = createAdminClient();
+      const res = await fetch(`/api/admin/schools/${schoolId}/divisions`);
+      const result = await res.json();
 
-      const { data, error } = await supabase
-        .from("SchoolDivision")
-        .select("id, division, year")
-        .eq("schoolId", schoolId)
-        .order("year", { ascending: false })
-        .order("division", { ascending: true });
-
-      if (!error && data) {
-        setDivisions(data as SchoolDivision[]);
+      if (result.success && result.data) {
+        setDivisions(result.data as SchoolDivision[]);
+      } else {
+        console.error("Error loading divisions:", result.error);
+        setDivisions([]);
       }
     } catch (err) {
       console.error("Error loading divisions:", err);
+      setDivisions([]);
     } finally {
       setLoadingDivisions(false);
     }

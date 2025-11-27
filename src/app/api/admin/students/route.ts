@@ -46,8 +46,56 @@ export async function POST(request: Request) {
 
     // 2. Parse and validate request body
     const body = await request.json();
-    const validatedData = createStudentSchema.parse(body);
+    const validation = createStudentSchema.safeParse(body);
+    if (!validation.success) {
+      // Traducir errores de Zod a mensajes amigables
+      const errors = validation.error.issues.map((issue) => {
+        const field = issue.path.join(".");
 
+        const fieldNames: Record<string, string> = {
+          firstName: "Nombre",
+          lastName: "Apellido",
+          dni: "DNI",
+          email: "Email",
+          productId: "Producto",
+          totalAmount: "Total a pagar",
+          installments: "Cuotas",
+          schoolId: "Colegio",
+          schoolName: "Nombre del colegio",
+          divisionId: "División",
+          divisionName: "Nombre de división",
+          divisionYear: "Año de división",
+        };
+
+        const friendlyField = fieldNames[field] || field;
+
+        if (issue.code === "invalid_type") {
+          if (issue.expected === "string")
+            return `${friendlyField} es requerido`;
+          if (issue.expected === "number")
+            return `${friendlyField} debe ser un número`;
+        }
+
+        if (issue.code === "too_small") return `${friendlyField} es requerido`;
+
+        if (field === "dni" && issue.code === "invalid_format") {
+          return "El DNI debe tener 7 u 8 dígitos";
+        }
+
+        if (field === "email" && issue.code === "invalid_format") {
+          return "El email no es válido";
+        }
+
+        return `${friendlyField}: ${issue.message}`;
+      });
+
+      return NextResponse.json(
+        { success: false, error: errors.join(". ") },
+        { status: 400 },
+      );
+    }
+
+    const validatedData = validation.data;
     // 3. Initialize Supabase client
     const supabase = createAdminClient();
 
