@@ -533,13 +533,14 @@ export default function DashboardClient({ session, user, payments }: Props) {
           transition: transform 0.15s, box-shadow 0.15s;
         }
         .btn-mp--active {
-          background: linear-gradient(135deg, #009EE3 0%, #00c2f0 100%);
-          color: white;
-          box-shadow: 0 6px 20px rgba(0,158,227,0.4);
+          background: #ffffff;
+          box-shadow: 0 6px 20px rgba(0,158,227,0.25);
+          border: 2px solid rgba(0,158,227,0.3);
         }
         .btn-mp--active:hover {
           transform: translateY(-2px);
-          box-shadow: 0 10px 28px rgba(0,158,227,0.45);
+          box-shadow: 0 10px 28px rgba(0,158,227,0.35);
+          border-color: #009EE3;
         }
         .btn-mp--active:active { transform: scale(0.99); }
         .btn-mp--disabled {
