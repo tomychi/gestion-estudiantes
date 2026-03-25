@@ -5,11 +5,19 @@ import Image from "next/image";
 import { useState } from "react";
 
 interface Props {
-  payments: PaymentWithUser[]; // Changed from single payment to array
+  payments: PaymentWithUser[];
   isOpen: boolean;
   onClose: () => void;
   onComplete: () => void;
   adminId: string;
+}
+
+function formatARS(n: number) {
+  return n.toLocaleString("es-AR", {
+    style: "currency",
+    currency: "ARS",
+    maximumFractionDigits: 0,
+  });
 }
 
 export default function PaymentReviewModal({
@@ -24,54 +32,40 @@ export default function PaymentReviewModal({
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
 
-  // Use first payment for display (they all share same user/receipt)
   const payment = payments[0];
-
-  // Calculate totals
-  const totalAmount = payments.reduce((sum, p) => sum + p.amount, 0);
+  const totalAmount = payments.reduce((s, p) => s + p.amount, 0);
   const installmentNumbers = payments
     .map((p) => p.installmentNumber)
     .filter((n) => n !== null)
     .sort((a, b) => a! - b!);
 
-  const handleApprove = async () => {
-    if (
-      !confirm(
-        `¿Estás seguro de aprobar este pago de ${payments.length} cuota(s)?`,
-      )
-    )
-      return;
+  const isPending = payment.status === "PENDING";
 
+  const handleApprove = async () => {
+    if (!confirm(`¿Aprobar este pago de ${payments.length} cuota(s)?`)) return;
     setIsSubmitting(true);
     setError("");
-
     try {
-      const approvePromises = payments.map((p) =>
-        fetch(`/api/admin/payments/${p.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "APPROVE",
-            reviewedBy: adminId, // ← Agregar aquí
-          }),
-        }).then((res) => res.json()),
+      const results = await Promise.all(
+        payments.map((p) =>
+          fetch(`/api/admin/payments/${p.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "APPROVE", reviewedBy: adminId }),
+          }).then((r) => r.json()),
+        ),
       );
-
-      const results = await Promise.all(approvePromises);
-
       const failed = results.filter((r) => !r.success);
-      if (failed.length > 0) {
+      if (failed.length) {
         setError(
           failed[0].error || `Error al aprobar ${failed.length} cuota(s)`,
         );
         setIsSubmitting(false);
         return;
       }
-
       onComplete();
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      setError(`Error de conexión. Intentá nuevamente. ${errorMessage}`);
+      setError(`Error de conexión. ${err instanceof Error ? err.message : ""}`);
       setIsSubmitting(false);
     }
   };
@@ -81,360 +75,605 @@ export default function PaymentReviewModal({
       setError("Ingresá una razón para el rechazo");
       return;
     }
-
-    if (
-      !confirm(
-        `¿Estás seguro de rechazar este pago de ${payments.length} cuota(s)?`,
-      )
-    )
-      return;
-
+    if (!confirm(`¿Rechazar este pago de ${payments.length} cuota(s)?`)) return;
     setIsSubmitting(true);
     setError("");
-
     try {
-      const rejectPromises = payments.map((p) =>
-        fetch(`/api/admin/payments/${p.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "REJECT",
-            rejectionReason: rejectionReason.trim(),
-            reviewedBy: adminId, // ← Agregar aquí
-          }),
-        }).then((res) => res.json()),
+      const results = await Promise.all(
+        payments.map((p) =>
+          fetch(`/api/admin/payments/${p.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "REJECT",
+              rejectionReason: rejectionReason.trim(),
+              reviewedBy: adminId,
+            }),
+          }).then((r) => r.json()),
+        ),
       );
-
-      const results = await Promise.all(rejectPromises);
-
       const failed = results.filter((r) => !r.success);
-      if (failed.length > 0) {
+      if (failed.length) {
         setError(
           failed[0].error || `Error al rechazar ${failed.length} cuota(s)`,
         );
         setIsSubmitting(false);
         return;
       }
-
       onComplete();
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      setError(`Error de conexión. Intentá nuevamente. ${errorMessage}`);
+      setError(`Error de conexión. ${err instanceof Error ? err.message : ""}`);
       setIsSubmitting(false);
     }
   };
 
   if (!isOpen) return null;
 
-  const isPending = payment.status === "PENDING";
+  const statusKey = payment.status.toLowerCase() as
+    | "approved"
+    | "pending"
+    | "rejected";
+  const newBalance = payment.user.balance - totalAmount;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="p-6 border-b border-gray-200 sticky top-0 bg-white">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-gray-900">
-              {isPending ? "Revisar Pago" : "Detalles del Pago"}
-            </h2>
-            <button
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
+    <>
+      <style>{`
+        .prm-overlay {
+          position: fixed; inset: 0;
+          background: rgba(0,0,0,0.55);
+          z-index: 50;
+          display: flex; align-items: center; justify-content: center;
+          padding: 1rem;
+          backdrop-filter: blur(2px);
+        }
+        .prm-modal {
+          --font-display: 'Plus Jakarta Sans', sans-serif;
+          --font-body:    'DM Sans', sans-serif;
+          --surface:      #ffffff;
+          --surface-2:    #f4f4f5;
+          --surface-3:    #e4e4e7;
+          --primary:      #00618e;
+          --primary-mid:  #0089c6;
+          --primary-tint: rgba(0,97,142,0.08);
+          --primary-tint-s: rgba(0,97,142,0.14);
+          --primary-focus: rgba(0,97,142,0.15);
+          --text-1:       #18181b;
+          --text-2:       #52525b;
+          --text-3:       #a1a1aa;
+          --success:      #0f7b55;
+          --success-bg:   rgba(15,123,85,0.08);
+          --success-border: rgba(15,123,85,0.2);
+          --warning:      #a16207;
+          --warning-bg:   rgba(161,98,7,0.08);
+          --warning-border: rgba(161,98,7,0.2);
+          --danger:       #b91c1c;
+          --danger-bg:    rgba(185,28,28,0.08);
+          --danger-border: rgba(185,28,28,0.2);
+          --r-sm:  0.5rem;
+          --r-md:  0.875rem;
+          --r-lg:  1.25rem;
+          --r-xl:  1.75rem;
+          --r-full: 9999px;
+
+          background: var(--surface);
+          border-radius: var(--r-xl);
+          box-shadow: 0 24px 60px rgba(0,0,0,0.2);
+          width: 100%;
+          max-width: 760px;
+          max-height: 90svh;
+          overflow-y: auto;
+          font-family: var(--font-body);
+          -webkit-font-smoothing: antialiased;
+        }
+        .prm-modal *, .prm-modal *::before, .prm-modal *::after {
+          box-sizing: border-box; margin: 0; padding: 0;
+        }
+
+        /* Sticky header */
+        .prm-header {
+          position: sticky; top: 0; z-index: 10;
+          background: var(--surface);
+          border-bottom: 1px solid var(--surface-3);
+          padding: 1.25rem 1.5rem;
+          display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        }
+        .prm-header__left { display: flex; align-items: center; gap: 0.75rem; }
+        .prm-header__icon {
+          width: 2.5rem; height: 2.5rem; border-radius: var(--r-md);
+          background: var(--primary-tint);
+          display: flex; align-items: center; justify-content: center;
+          color: var(--primary); flex-shrink: 0;
+        }
+        .prm-header__title {
+          font-family: var(--font-display);
+          font-size: 1.125rem; font-weight: 800;
+          color: var(--text-1); letter-spacing: -0.01em;
+        }
+        .prm-header__sub { font-size: 0.8125rem; color: var(--text-3); margin-top: 0.15rem; }
+        .prm-close {
+          width: 2rem; height: 2rem; border-radius: var(--r-md);
+          background: var(--surface-2); border: none;
+          display: flex; align-items: center; justify-content: center;
+          cursor: pointer; color: var(--text-3); flex-shrink: 0;
+          transition: background 0.12s, color 0.12s;
+        }
+        .prm-close:hover { background: var(--surface-3); color: var(--text-1); }
+        .prm-close:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Body */
+        .prm-body {
+          padding: 1.25rem 1.5rem;
+          display: flex; flex-direction: column; gap: 1.25rem;
+        }
+
+        /* Section label */
+        .prm-section-label {
+          font-size: 0.6875rem; font-weight: 700;
+          text-transform: uppercase; letter-spacing: 0.07em;
+          color: var(--text-3); margin-bottom: 0.75rem;
+        }
+
+        /* Info card */
+        .prm-info-card {
+          background: var(--surface-2);
+          border-radius: var(--r-lg);
+          padding: 1rem 1.125rem;
+        }
+        .prm-data-grid {
+          display: grid; grid-template-columns: 1fr 1fr; gap: 0.875rem;
+        }
+        @media (min-width: 500px) {
+          .prm-data-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        .prm-data-label { font-size: 0.6875rem; color: var(--text-3); font-weight: 500; margin-bottom: 0.2rem; }
+        .prm-data-value { font-size: 0.875rem; font-weight: 600; color: var(--text-1); }
+
+        /* Two-col layout */
+        .prm-2col {
+          display: grid; grid-template-columns: 1fr; gap: 1rem;
+        }
+        @media (min-width: 600px) {
+          .prm-2col { grid-template-columns: 1fr 1fr; }
+        }
+
+        /* Payment details */
+        .prm-detail-list { display: flex; flex-direction: column; gap: 0.5rem; }
+        .prm-detail-row {
+          display: flex; align-items: center; justify-content: space-between;
+          font-size: 0.875rem;
+        }
+        .prm-detail-row__label { color: var(--text-2); }
+        .prm-detail-row__value { font-weight: 600; color: var(--text-1); }
+        .prm-detail-row__value--mono { font-family: monospace; font-size: 0.8125rem; }
+        .prm-detail-row--total .prm-detail-row__value {
+          font-family: var(--font-display); font-size: 1.125rem; font-weight: 800; color: var(--text-1);
+        }
+
+        /* Status inline */
+        .prm-status {
+          font-size: 0.8125rem; font-weight: 700;
+        }
+        .prm-status--approved { color: var(--success); }
+        .prm-status--pending  { color: var(--warning); }
+        .prm-status--rejected { color: var(--danger); }
+
+        /* Balance block */
+        .prm-balance {
+          background: var(--primary-tint);
+          border-radius: var(--r-lg);
+          padding: 1rem 1.125rem;
+        }
+        .prm-balance__row {
+          display: flex; justify-content: space-between; align-items: center;
+          font-size: 0.875rem; margin-bottom: 0.5rem;
+        }
+        .prm-balance__row:last-child { margin-bottom: 0; }
+        .prm-balance__label { color: var(--primary); font-weight: 500; }
+        .prm-balance__value { font-family: var(--font-display); font-weight: 700; color: var(--primary); }
+        .prm-balance__row--total {
+          padding-top: 0.5rem; margin-top: 0.375rem;
+          border-top: 1px solid rgba(0,97,142,0.15);
+        }
+        .prm-balance__row--total .prm-balance__value { font-size: 1.125rem; }
+
+        /* Post-approve preview */
+        .prm-approve-preview {
+          background: var(--success-bg);
+          border: 1px solid var(--success-border);
+          border-radius: var(--r-md);
+          padding: 0.75rem 1rem;
+          font-size: 0.8125rem; color: var(--success);
+          margin-top: 0.625rem;
+        }
+        .prm-approve-preview strong { font-weight: 700; }
+
+        /* Notes */
+        .prm-notes {
+          background: var(--surface-2);
+          border-radius: var(--r-md);
+          padding: 0.75rem 0.875rem;
+          font-size: 0.875rem; color: var(--text-2); line-height: 1.5;
+        }
+        .prm-rejection-note {
+          background: var(--danger-bg);
+          border: 1px solid var(--danger-border);
+          border-radius: var(--r-md);
+          padding: 0.75rem 0.875rem;
+          font-size: 0.875rem; color: var(--danger); line-height: 1.5;
+        }
+
+        /* Receipt */
+        .prm-receipt {
+          border-radius: var(--r-lg);
+          overflow: hidden;
+          border: 1px solid var(--surface-3);
+          background: var(--surface-2);
+        }
+        .prm-receipt__open {
+          display: inline-flex; align-items: center; gap: 0.5rem;
+          padding: 0.625rem 1.125rem;
+          border-radius: var(--r-full);
+          font-family: var(--font-display); font-size: 0.875rem; font-weight: 700;
+          background: var(--primary-tint); color: var(--primary);
+          text-decoration: none; margin: 0.875rem auto 0; display: flex; justify-content: center;
+          transition: background 0.12s;
+        }
+        .prm-receipt__open:hover { background: var(--primary-tint-s); }
+
+        /* Reject form */
+        .prm-reject-form {
+          background: var(--danger-bg);
+          border: 1px solid var(--danger-border);
+          border-radius: var(--r-lg);
+          padding: 1rem;
+        }
+        .prm-reject-form__label {
+          font-size: 0.8125rem; font-weight: 700; color: var(--danger);
+          margin-bottom: 0.625rem; display: block;
+        }
+        .prm-reject-textarea {
+          width: 100%; padding: 0.6875rem 0.875rem;
+          border-radius: var(--r-md);
+          border: 1.5px solid var(--danger-border);
+          background: white;
+          font-family: var(--font-body); font-size: 0.9375rem; color: var(--text-1);
+          outline: none; resize: none; min-height: 5rem;
+          transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .prm-reject-textarea:focus {
+          border-color: var(--danger);
+          box-shadow: 0 0 0 3px rgba(185,28,28,0.12);
+        }
+        .prm-reject-textarea:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Alert */
+        .prm-alert {
+          border-radius: var(--r-md); padding: 0.75rem 0.875rem;
+          font-size: 0.8125rem; background: var(--danger-bg);
+          border: 1px solid var(--danger-border); color: var(--danger);
+        }
+
+        /* Footer */
+        .prm-footer {
+          display: flex; gap: 0.625rem;
+          padding: 1rem 1.5rem 1.375rem;
+          border-top: 1px solid var(--surface-3);
+          flex-wrap: wrap;
+        }
+        .prm-btn {
+          display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+          padding: 0.75rem 1.25rem; border-radius: var(--r-full);
+          font-family: var(--font-display); font-size: 0.9375rem; font-weight: 700;
+          border: none; cursor: pointer;
+          transition: transform 0.12s, box-shadow 0.12s, background 0.12s, opacity 0.12s;
+        }
+        .prm-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+        .prm-btn--cancel { background: var(--surface-2); color: var(--text-2); flex-shrink: 0; }
+        .prm-btn--cancel:hover:not(:disabled) { background: var(--surface-3); }
+        .prm-btn--reject {
+          flex: 1; background: var(--danger-bg); color: var(--danger);
+          border: 1.5px solid var(--danger-border);
+        }
+        .prm-btn--reject:hover:not(:disabled) { background: rgba(185,28,28,0.14); }
+        .prm-btn--approve {
+          flex: 1; background: linear-gradient(135deg, var(--success) 0%, #0fa86e 100%);
+          color: white; box-shadow: 0 4px 12px rgba(15,123,85,0.3);
+        }
+        .prm-btn--approve:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(15,123,85,0.38); }
+        .prm-btn--confirm-reject {
+          flex: 1; background: var(--danger); color: white;
+          box-shadow: 0 4px 12px rgba(185,28,28,0.25);
+        }
+        .prm-btn--confirm-reject:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(185,28,28,0.35); }
+        .prm-spinner {
+          width: 1rem; height: 1rem;
+          border: 2px solid rgba(255,255,255,0.3); border-top-color: white;
+          border-radius: 50%; animation: prm-spin 0.7s linear infinite;
+        }
+        @keyframes prm-spin { to { transform: rotate(360deg); } }
+      `}</style>
+
+      <div className="prm-overlay" onClick={onClose}>
+        <div className="prm-modal" onClick={(e) => e.stopPropagation()}>
+          {/* Sticky header */}
+          <div className="prm-header">
+            <div className="prm-header__left">
+              <div className="prm-header__icon">
+                <svg
+                  width="18"
+                  height="18"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <div className="p-6 space-y-6">
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-              {error}
-            </div>
-          )}
-
-          {/* Student Info */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-gray-700 mb-3">
-              Información del Estudiante
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-gray-500">Nombre</p>
-                <p className="text-sm font-semibold text-gray-900">
-                  {payment.user.firstName} {payment.user.lastName}
-                </p>
+                  viewBox="0 0 24 24"
+                >
+                  <rect x="1" y="4" width="22" height="16" rx="2" />
+                  <line x1="1" y1="10" x2="23" y2="10" />
+                </svg>
               </div>
               <div>
-                <p className="text-xs text-gray-500">DNI</p>
-                <p className="text-sm font-semibold text-gray-900">
+                <p className="prm-header__title">
+                  {isPending ? "Revisar pago" : "Detalles del pago"}
+                </p>
+                <p className="prm-header__sub">
+                  {payment.user.firstName} {payment.user.lastName} · DNI{" "}
                   {payment.user.dni}
                 </p>
               </div>
-              <div>
-                <p className="text-xs text-gray-500">Colegio</p>
-                <p className="text-sm font-semibold text-gray-900">
-                  {payment.user.schoolDivision?.school.name || "N/A"}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">División</p>
-                <p className="text-sm font-semibold text-gray-900">
-                  {payment.user.schoolDivision
-                    ? `${payment.user.schoolDivision.division} - ${payment.user.schoolDivision.year}`
-                    : "N/A"}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Email</p>
-                <p className="text-sm font-semibold text-gray-900">
-                  {payment.user.email || "N/A"}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Producto</p>
-                <p className="text-sm font-semibold text-gray-900">
-                  {payment.user.product.name}
-                </p>
-              </div>
             </div>
+            <button
+              className="prm-close"
+              onClick={onClose}
+              disabled={isSubmitting}
+              aria-label="Cerrar"
+            >
+              <svg
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                viewBox="0 0 24 24"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
           </div>
 
-          {/* Payment Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
+          <div className="prm-body">
+            {/* Error */}
+            {error && <div className="prm-alert">{error}</div>}
+
+            {/* Student info */}
+            <div>
+              <p className="prm-section-label">Información del estudiante</p>
+              <div className="prm-info-card">
+                <div className="prm-data-grid">
+                  {[
+                    {
+                      label: "Nombre",
+                      value: `${payment.user.firstName} ${payment.user.lastName}`,
+                    },
+                    { label: "DNI", value: payment.user.dni },
+                    {
+                      label: "Colegio",
+                      value: payment.user.schoolDivision?.school.name || "N/A",
+                    },
+                    {
+                      label: "División",
+                      value: payment.user.schoolDivision
+                        ? `${payment.user.schoolDivision.division} · ${payment.user.schoolDivision.year}`
+                        : "N/A",
+                    },
+                    { label: "Email", value: payment.user.email || "N/A" },
+                    { label: "Producto", value: payment.user.product.name },
+                  ].map(({ label, value }) => (
+                    <div key={label}>
+                      <p className="prm-data-label">{label}</p>
+                      <p className="prm-data-value">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Payment + balance side-by-side */}
+            <div className="prm-2col">
+              {/* Payment details */}
               <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-3">
-                  Detalles del Pago
-                </h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Monto Total:</span>
-                    <span className="text-sm font-bold text-gray-900">
-                      ${totalAmount.toLocaleString("es-AR")}
+                <p className="prm-section-label">Detalles del pago</p>
+                <div className="prm-detail-list">
+                  <div className="prm-detail-row prm-detail-row--total">
+                    <span className="prm-detail-row__label">Monto total</span>
+                    <span className="prm-detail-row__value">
+                      {formatARS(totalAmount)}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Cuota(s):</span>
-                    <span className="text-sm font-semibold text-gray-900">
+                  <div className="prm-detail-row">
+                    <span className="prm-detail-row__label">Cuota(s)</span>
+                    <span className="prm-detail-row__value">
                       {installmentNumbers.join(", ")}
                     </span>
                   </div>
                   {payments.length > 1 && (
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">
-                        Cantidad de cuotas:
-                      </span>
-                      <span className="text-sm font-semibold text-gray-900">
-                        {payments.length}
+                    <div className="prm-detail-row">
+                      <span className="prm-detail-row__label">Cantidad</span>
+                      <span className="prm-detail-row__value">
+                        {payments.length} cuotas
                       </span>
                     </div>
                   )}
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Fecha envío:</span>
-                    <span className="text-sm text-gray-900">
+                  <div className="prm-detail-row">
+                    <span className="prm-detail-row__label">Fecha envío</span>
+                    <span className="prm-detail-row__value">
                       {new Date(payment.submittedAt).toLocaleDateString(
                         "es-AR",
-                        {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        },
+                        { day: "numeric", month: "short", year: "numeric" },
                       )}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Referencia:</span>
-                    <span className="text-sm text-gray-900 font-mono">
-                      {payment.transactionRef || "N/A"}
+                  <div className="prm-detail-row">
+                    <span className="prm-detail-row__label">Referencia</span>
+                    <span className="prm-detail-row__value prm-detail-row__value--mono">
+                      {payment.transactionRef || "—"}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Estado:</span>
-                    <span
-                      className={`text-sm font-semibold ${
-                        payment.status === "APPROVED"
-                          ? "text-green-600"
-                          : payment.status === "REJECTED"
-                            ? "text-red-600"
-                            : "text-yellow-600"
-                      }`}
+                  <div className="prm-detail-row">
+                    <span className="prm-detail-row__label">Estado</span>
+                    <span className={`prm-status prm-status--${statusKey}`}>
+                      {
+                        {
+                          approved: "Aprobado",
+                          pending: "Pendiente",
+                          rejected: "Rechazado",
+                        }[statusKey]
+                      }
+                    </span>
+                  </div>
+                </div>
+
+                {payment.notes && (
+                  <div style={{ marginTop: "0.875rem" }}>
+                    <p className="prm-section-label">Notas del estudiante</p>
+                    <p className="prm-notes">{payment.notes}</p>
+                  </div>
+                )}
+                {payment.rejectionReason && (
+                  <div style={{ marginTop: "0.875rem" }}>
+                    <p
+                      className="prm-section-label"
+                      style={{ color: "var(--danger)" }}
                     >
-                      {payment.status === "APPROVED"
-                        ? "Aprobado"
-                        : payment.status === "REJECTED"
-                          ? "Rechazado"
-                          : "Pendiente"}
+                      Razón de rechazo
+                    </p>
+                    <p className="prm-rejection-note">
+                      {payment.rejectionReason}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Balance */}
+              <div>
+                <p className="prm-section-label">Estado de cuenta</p>
+                <div className="prm-balance">
+                  <div className="prm-balance__row">
+                    <span className="prm-balance__label">Total</span>
+                    <span className="prm-balance__value">
+                      {formatARS(payment.user.totalAmount)}
+                    </span>
+                  </div>
+                  <div className="prm-balance__row">
+                    <span className="prm-balance__label">Pagado</span>
+                    <span className="prm-balance__value">
+                      {formatARS(payment.user.paidAmount)}
+                    </span>
+                  </div>
+                  <div className="prm-balance__row prm-balance__row--total">
+                    <span className="prm-balance__label">Saldo actual</span>
+                    <span className="prm-balance__value">
+                      {formatARS(payment.user.balance)}
+                    </span>
+                  </div>
+                  <div
+                    className="prm-balance__row"
+                    style={{ marginTop: "0.375rem" }}
+                  >
+                    <span className="prm-balance__label">Cuotas totales</span>
+                    <span className="prm-balance__value">
+                      {payment.user.installments}
                     </span>
                   </div>
                 </div>
-              </div>
-
-              {payment.notes && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">
-                    Notas del estudiante
-                  </h3>
-                  <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
-                    {payment.notes}
-                  </p>
-                </div>
-              )}
-
-              {payment.rejectionReason && (
-                <div>
-                  <h3 className="text-sm font-medium text-red-700 mb-2">
-                    Razón de rechazo
-                  </h3>
-                  <p className="text-sm text-red-600 bg-red-50 rounded-lg p-3">
-                    {payment.rejectionReason}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Balance Info */}
-            <div>
-              <h3 className="text-sm font-medium text-gray-700 mb-3">
-                Estado de Cuenta
-              </h3>
-              <div className="bg-indigo-50 rounded-lg p-4 space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-sm text-indigo-700">Total:</span>
-                  <span className="text-sm font-bold text-indigo-900">
-                    ${payment.user.totalAmount.toLocaleString("es-AR")}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-indigo-700">Pagado:</span>
-                  <span className="text-sm font-semibold text-indigo-900">
-                    ${payment.user.paidAmount.toLocaleString("es-AR")}
-                  </span>
-                </div>
-                <div className="flex justify-between pt-2 border-t border-indigo-200">
-                  <span className="text-sm font-medium text-indigo-700">
-                    Saldo:
-                  </span>
-                  <span className="text-lg font-bold text-indigo-900">
-                    ${payment.user.balance.toLocaleString("es-AR")}
-                  </span>
-                </div>
-                <div className="pt-2 border-t border-indigo-200">
-                  <div className="flex justify-between text-xs text-indigo-600">
-                    <span>Cuotas totales:</span>
-                    <span>{payment.user.installments}</span>
-                  </div>
-                </div>
-              </div>
-
-              {isPending && (
-                <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                  <p className="text-xs text-yellow-800">
-                    <strong>Nuevo saldo si se aprueba:</strong>
-                    <br />$
-                    {(payment.user.balance - totalAmount).toLocaleString(
-                      "es-AR",
-                    )}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Receipt Preview */}
-          {payment.receiptUrl && (
-            <div>
-              <h3 className="text-sm font-medium text-gray-700 mb-3">
-                Comprobante de Pago
-              </h3>
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                {payment.receiptUrl.match(/\.(jpg|jpeg|png|webp)$/i) ? (
-                  <Image
-                    src={payment.receiptUrl}
-                    alt="Comprobante"
-                    width={800}
-                    height={500}
-                    className="w-full h-auto max-h-[500px] object-contain bg-gray-50"
-                  />
-                ) : (
-                  <div className="space-y-4">
-                    {/* Preview del PDF */}
-                    <iframe
-                      src={payment.receiptUrl}
-                      className="w-full h-[500px] border border-gray-200 rounded-lg"
-                      title="Preview Comprobante PDF"
-                    />
-
-                    {/* Botón para abrir en nueva pestaña */}
-                    <div className="text-center">
-                      <a
-                        href={payment.receiptUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium transition-colors"
-                      >
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                          />
-                        </svg>
-                        Abrir PDF en nueva pestaña
-                      </a>
-                    </div>
+                {isPending && (
+                  <div className="prm-approve-preview">
+                    <strong>Saldo si se aprueba:</strong>{" "}
+                    {formatARS(newBalance)}
                   </div>
                 )}
               </div>
             </div>
-          )}
 
-          {/* Reject Form */}
-          {showRejectForm && isPending && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-red-900 mb-3">
-                Razón del Rechazo
-              </h3>
-              <textarea
-                rows={3}
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                disabled={isSubmitting}
-                placeholder="Explicá por qué rechazás este pago..."
-                className="w-full px-4 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 bg-white text-gray-900 disabled:opacity-50"
-              />
-            </div>
-          )}
+            {/* Receipt */}
+            {payment.receiptUrl && (
+              <div>
+                <p className="prm-section-label">Comprobante de pago</p>
+                <div className="prm-receipt">
+                  {/\.(jpg|jpeg|png|webp)$/i.test(payment.receiptUrl) ? (
+                    <Image
+                      src={payment.receiptUrl}
+                      alt="Comprobante"
+                      width={800}
+                      height={500}
+                      className="w-full h-auto max-h-[500px] object-contain"
+                    />
+                  ) : (
+                    <>
+                      <iframe
+                        src={payment.receiptUrl}
+                        className="w-full"
+                        style={{
+                          height: "480px",
+                          border: "none",
+                          display: "block",
+                        }}
+                        title="Preview Comprobante PDF"
+                      />
+                      <a
+                        href={payment.receiptUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="prm-receipt__open"
+                      >
+                        <svg
+                          width="14"
+                          height="14"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          viewBox="0 0 24 24"
+                        >
+                          <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" />
+                        </svg>
+                        Abrir en nueva pestaña
+                      </a>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
 
-          {/* Action Buttons */}
-          <div className="flex gap-3 pt-4 border-t">
+            {/* Reject form */}
+            {showRejectForm && isPending && (
+              <div className="prm-reject-form">
+                <label className="prm-reject-form__label">
+                  Razón del rechazo *
+                </label>
+                <textarea
+                  rows={3}
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  disabled={isSubmitting}
+                  placeholder="Explicá por qué rechazás este pago..."
+                  className="prm-reject-textarea"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="prm-footer">
             <button
               type="button"
+              className="prm-btn prm-btn--cancel"
               onClick={onClose}
               disabled={isSubmitting}
-              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors disabled:opacity-50"
             >
               {isPending ? "Cancelar" : "Cerrar"}
             </button>
@@ -443,57 +682,37 @@ export default function PaymentReviewModal({
               <>
                 <button
                   type="button"
+                  className="prm-btn prm-btn--reject"
                   onClick={() => setShowRejectForm(true)}
                   disabled={isSubmitting}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors disabled:opacity-50"
                 >
                   Rechazar
                 </button>
                 <button
                   type="button"
+                  className="prm-btn prm-btn--approve"
                   onClick={handleApprove}
                   disabled={isSubmitting}
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {isSubmitting ? (
                     <>
-                      <svg
-                        className="animate-spin h-5 w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        />
-                      </svg>
-                      Aprobando...
+                      <div className="prm-spinner" /> Aprobando...
                     </>
                   ) : (
                     <>
                       <svg
-                        className="w-5 h-5"
+                        width="14"
+                        height="14"
                         fill="none"
                         stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
                         viewBox="0 0 24 24"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                      Aprobar Pago
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>{" "}
+                      Aprobar pago
                     </>
                   )}
                 </button>
@@ -503,41 +722,22 @@ export default function PaymentReviewModal({
             {showRejectForm && (
               <button
                 type="button"
+                className="prm-btn prm-btn--confirm-reject"
                 onClick={handleReject}
                 disabled={isSubmitting || !rejectionReason.trim()}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (
                   <>
-                    <svg
-                      className="animate-spin h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      />
-                    </svg>
-                    Rechazando...
+                    <div className="prm-spinner" /> Rechazando...
                   </>
                 ) : (
-                  "Confirmar Rechazo"
+                  "Confirmar rechazo"
                 )}
               </button>
             )}
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

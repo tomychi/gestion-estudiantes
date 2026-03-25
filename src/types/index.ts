@@ -216,6 +216,9 @@ export interface ParsedStudent {
   size?: string;
   email?: string;
   phone?: string;
+  productId?: string;
+  totalAmount?: number;
+  installments?: number;
 }
 
 export interface ImportData {

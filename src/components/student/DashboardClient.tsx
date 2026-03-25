@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import InstallmentsTable from "./InstallmentsTable";
 import { signOut } from "next-auth/react";
 import {
@@ -15,528 +16,22 @@ interface Props {
   payments: SerializedPayment[];
 }
 
-export default function DashboardClient({ session, user, payments }: Props) {
-  const [selectedInstallmentsForPayment, setSelectedInstallmentsForPayment] =
-    useState<number[]>([]);
-
-  const [isMercadoPagoLoading, setIsMercadoPagoLoading] = useState(false);
-  const [paymentNotification, setPaymentNotification] = useState<
-    "success" | "failure" | "pending" | null
-  >(null);
-
-  // Calculate installment amount
-  const installmentAmount = user.totalAmount / user.installments;
-
-  // Handler for installments selection from the table
-  const handleInstallmentsSelection = (selectedInstallments: number[]) => {
-    setSelectedInstallmentsForPayment(selectedInstallments);
-  };
-
-  const handleMercadoPagoPayment = async () => {
-    if (selectedInstallmentsForPayment.length === 0) {
-      alert("Por favor, seleccioná al menos una cuota para pagar");
-      return;
-    }
-
-    setIsMercadoPagoLoading(true);
-
-    try {
-      const totalAmount =
-        selectedInstallmentsForPayment.length * installmentAmount;
-
-      const response = await fetch("/api/mercadopago/create-preference", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          installments: selectedInstallmentsForPayment,
-          totalAmount: totalAmount,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!data.success) {
-        alert(data.error || "Error al crear la preferencia de pago");
-        setIsMercadoPagoLoading(false);
-        return;
-      }
-
-      // Redirect directly to MercadoPago checkout
-      window.location.href = data.init_point;
-    } catch (error) {
-      console.error("Error:", error);
-      alert("Error al procesar el pago. Intentá nuevamente.");
-      setIsMercadoPagoLoading(false);
-    }
-  };
-
-  // Detect payment status from URL
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const paymentStatus = params.get("payment") as
-      | "success"
-      | "failure"
-      | "pending"
-      | null;
-
-    if (paymentStatus) {
-      setPaymentNotification(paymentStatus);
-      window.history.replaceState({}, "", "/dashboard");
-
-      // Auto-hide after 5 seconds
-      setTimeout(() => {
-        setPaymentNotification(null);
-      }, 5000);
-    }
-  }, []);
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Hola, {session.user.firstName}! 👋
-            </h1>
-            <p className="text-sm text-gray-600">
-              {user.schoolDivision?.school?.name} -{" "}
-              {user.schoolDivision?.division}
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              signOut({ callbackUrl: "/login" });
-            }}
-            className="flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-              />
-            </svg>
-            Cerrar Sesión
-          </button>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Balance Card con barra de progreso */}
-        <div className="bg-linear-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-xl p-8 text-white mb-8">
-          <h2 className="text-lg font-medium opacity-90 mb-2">Tu Saldo</h2>
-          <div className="flex items-baseline gap-4 mb-6">
-            <span className="text-5xl font-bold">
-              ${user.balance.toLocaleString("es-AR")}
-            </span>
-            <span className="text-lg opacity-80">
-              de ${user.totalAmount.toLocaleString("es-AR")}
-            </span>
-          </div>
-
-          {/* Barra de progreso */}
-          <div className="mb-6">
-            <div className="flex justify-between text-sm opacity-90 mb-2">
-              <span>Progreso de pago</span>
-              <span>
-                {Math.round((user.paidAmount / user.totalAmount) * 100)}%
-              </span>
-            </div>
-            <div className="w-full bg-white/20 rounded-full h-3 overflow-hidden">
-              <div
-                className="bg-white h-full rounded-full transition-all duration-500"
-                style={{
-                  width: `${(user.paidAmount / user.totalAmount) * 100}%`,
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4 pt-6 border-t border-white/20">
-            <div>
-              <p className="text-sm opacity-80">Pagado</p>
-              <p className="text-xl font-semibold">
-                ${user.paidAmount.toLocaleString("es-AR")}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm opacity-80">Cuotas</p>
-              <p className="text-xl font-semibold">
-                {Math.round(
-                  (user.paidAmount / user.totalAmount) * user.installments,
-                )}{" "}
-                / {user.installments}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm opacity-80">Estado</p>
-              <p className="text-xl font-semibold">
-                {user.balance === 0 ? "✅ Completo" : "⏳ Pendiente"}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Product Info */}
-        <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Tu Producto
-          </h3>
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-indigo-100 rounded-lg flex items-center justify-center">
-              <svg
-                className="w-8 h-8 text-indigo-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-                />
-              </svg>
-            </div>
-            <div>
-              <h4 className="font-semibold text-gray-900">
-                {user.product.name}
-              </h4>
-              <p className="text-sm text-gray-600">
-                {user.product.description}
-              </p>
-              {user.size && (
-                <p className="text-sm text-gray-500 mt-1">Talle: {user.size}</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* NEW: Installments Table Section */}
-        <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">
-                Gestión de Cuotas
-              </h3>
-              <p className="text-sm text-gray-600 mt-1">
-                Seleccioná las cuotas que querés pagar
-              </p>
-            </div>
-
-            {/* Button Container */}
-            <div className="flex flex-col items-end gap-2">
-              <button
-                onClick={handleMercadoPagoPayment}
-                disabled={
-                  selectedInstallmentsForPayment.length === 0 ||
-                  isMercadoPagoLoading
-                }
-                className={`
-                  px-8 py-4 rounded-md
-                  text-base font-semibold
-                  transition-all duration-300
-                  flex items-center justify-center gap-2
-                  min-w-[280px] w-full sm:w-auto
-                  ${
-                    selectedInstallmentsForPayment.length > 0 &&
-                    !isMercadoPagoLoading
-                      ? "bg-[#009EE3] text-white hover:bg-[#0084C2] shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-1px_rgba(0,0,0,0.06)] hover:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-2px_rgba(0,0,0,0.05)] hover:-translate-y-0.5 active:scale-[0.98] cursor-pointer"
-                      : "bg-gray-300 text-gray-500 cursor-not-allowed opacity-60"
-                  }
-                `}
-              >
-                {isMercadoPagoLoading ? (
-                  <>
-                    <svg
-                      className="animate-spin h-5 w-5"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      />
-                    </svg>
-                    Procesando...
-                  </>
-                ) : (
-                  <>
-                    {/* Logo de Mercado Pago */}
-                    <svg
-                      className="w-6 h-6 drop-shadow-sm"
-                      viewBox="0 0 256 256"
-                      fill="currentColor"
-                    >
-                      <path d="M128 24C74.98 24 32 66.98 32 120c0 53.02 42.98 96 96 96s96-42.98 96-96c0-53.02-42.98-96-96-96zm47.03 122.75c-8.54 8.54-22.39 8.54-30.93 0l-32.13-32.13c-8.54-8.54-8.54-22.39 0-30.93 8.54-8.54 22.39-8.54 30.93 0l16.67 16.67 48.67-48.67c8.54-8.54 22.39-8.54 30.93 0 8.54 8.54 8.54 22.39 0 30.93l-64.14 64.13z" />
-                    </svg>
-                    <span className="tracking-wide">
-                      Pagar con Mercado Pago
-                    </span>
-                  </>
-                )}
-              </button>
-
-              {/* Badge de seguridad */}
-              {selectedInstallmentsForPayment.length > 0 &&
-                !isMercadoPagoLoading && (
-                  <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                    <svg
-                      className="w-3.5 h-3.5 text-green-600"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span>Pago 100% seguro</span>
-                  </div>
-                )}
-            </div>
-          </div>
-
-          {/* Overdue Alert */}
-          {(() => {
-            const getDueDate = (installmentNum: number): Date => {
-              const createdAt = new Date(user.createdAt);
-              const dueDay = 15; // TODO: Get from settings
-
-              // First installment always due next month, rest follow sequentially
-              const monthsToAdd = installmentNum; // Installment 1 = +1 month, 2 = +2 months, etc.
-
-              const dueDate = new Date(createdAt);
-              dueDate.setMonth(dueDate.getMonth() + monthsToAdd);
-              dueDate.setDate(dueDay);
-
-              return dueDate;
-            };
-
-            const hasOverdueInstallments = Array.from(
-              { length: user.installments },
-              (_, i) => i + 1,
-            ).some((installmentNum) => {
-              const isPaid = payments.some(
-                (p) =>
-                  p.installmentNumber === installmentNum &&
-                  p.status === "APPROVED",
-              );
-              const isPending = payments.some(
-                (p) =>
-                  p.installmentNumber === installmentNum &&
-                  p.status === "PENDING",
-              );
-              const dueDate = getDueDate(installmentNum);
-              return !isPaid && !isPending && new Date() > dueDate;
-            });
-
-            return (
-              hasOverdueInstallments && (
-                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-                  <svg
-                    className="w-6 h-6 text-red-600 flex-shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                    />
-                  </svg>
-                  <div>
-                    <h4 className="font-semibold text-red-900">
-                      Tenés cuotas vencidas
-                    </h4>
-                    <p className="text-sm text-red-700 mt-1">
-                      Por favor, ponete al día con tus pagos para evitar
-                      inconvenientes.
-                    </p>
-                  </div>
-                </div>
-              )
-            );
-          })()}
-
-          {/* Installments Table Component */}
-          <InstallmentsTable
-            totalInstallments={user.installments}
-            installmentAmount={installmentAmount}
-            existingPayments={payments}
-            onSelectionChange={handleInstallmentsSelection}
-            userCreatedAt={user.createdAt}
-          />
-        </div>
-
-        {/* Payments History Section */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">
-              Historial de Pagos
-            </h3>
-          </div>
-
-          {payments && payments.length > 0 ? (
-            <div className="space-y-4">
-              {payments.map((payment) => (
-                <div
-                  key={payment.id}
-                  className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-center gap-4">
-                    <div
-                      className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                        payment.status === "APPROVED"
-                          ? "bg-green-100"
-                          : payment.status === "REJECTED"
-                            ? "bg-red-100"
-                            : "bg-yellow-100"
-                      }`}
-                    >
-                      {payment.status === "APPROVED" ? (
-                        <svg
-                          className="w-6 h-6 text-green-600"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                      ) : payment.status === "REJECTED" ? (
-                        <svg
-                          className="w-6 h-6 text-red-600"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      ) : (
-                        <svg
-                          className="w-6 h-6 text-yellow-600"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">
-                        {payment.installmentNumber
-                          ? `Cuota ${payment.installmentNumber}`
-                          : "Sin cuota asignada"}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {new Date(payment.submittedAt).toLocaleDateString(
-                          "es-AR",
-                        )}
-                      </p>
-                      {payment.status === "REJECTED" &&
-                        payment.rejectionReason && (
-                          <p className="text-sm text-red-600 mt-1">
-                            Motivo: {payment.rejectionReason}
-                          </p>
-                        )}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-gray-900">
-                      ${payment.amount.toLocaleString("es-AR")}
-                    </p>
-                    <span
-                      className={`inline-block px-3 py-1 rounded-full text-xs font-medium mt-1 ${
-                        payment.status === "APPROVED"
-                          ? "bg-green-100 text-green-800"
-                          : payment.status === "REJECTED"
-                            ? "bg-red-100 text-red-800"
-                            : "bg-yellow-100 text-yellow-800"
-                      }`}
-                    >
-                      {payment.status === "APPROVED"
-                        ? "Aprobado"
-                        : payment.status === "REJECTED"
-                          ? "Rechazado"
-                          : "Pendiente"}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <svg
-                className="mx-auto h-12 w-12 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900">
-                No hay pagos todavía
-              </h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Comenzá subiendo tu primer pago
-              </p>
-            </div>
-          )}
-          {paymentNotification && (
-            <PaymentNotification
-              status={paymentNotification}
-              onClose={() => setPaymentNotification(null)}
-            />
-          )}
-        </div>
-      </main>
-    </div>
-  );
+function formatARS(amount: number) {
+  return amount.toLocaleString("es-AR", {
+    style: "currency",
+    currency: "ARS",
+    maximumFractionDigits: 0,
+  });
 }
+
+function getInstallmentDueDate(userCreatedAt: string, num: number): Date {
+  const d = new Date(userCreatedAt);
+  d.setMonth(d.getMonth() + num);
+  d.setDate(15);
+  return d;
+}
+
+// ─── Payment Notification Toast ──────────────────────────────────────────────
 
 function PaymentNotification({
   status,
@@ -547,84 +42,1031 @@ function PaymentNotification({
 }) {
   const config = {
     success: {
-      bg: "bg-green-50",
-      border: "border-green-500",
-      icon: "text-green-600",
-      title: "¡Pago Exitoso!",
-      message:
-        "Tu pago fue aprobado correctamente. Las cuotas se actualizarán en unos momentos.",
+      icon: "✓",
+      title: "¡Pago exitoso!",
+      message: "Tu pago fue aprobado. Las cuotas se actualizarán en breve.",
+      cls: "toast--success",
     },
     failure: {
-      bg: "bg-red-50",
-      border: "border-red-500",
-      icon: "text-red-600",
-      title: "Pago Rechazado",
+      icon: "✕",
+      title: "Pago rechazado",
       message:
-        "No pudimos procesar tu pago. Por favor, verificá tus datos e intentá nuevamente.",
+        "No pudimos procesar tu pago. Verificá tus datos e intentá de nuevo.",
+      cls: "toast--failure",
     },
     pending: {
-      bg: "bg-yellow-50",
-      border: "border-yellow-500",
-      icon: "text-yellow-600",
-      title: "Pago Pendiente",
+      icon: "◷",
+      title: "Pago en proceso",
       message:
-        "Tu pago está siendo procesado. Te notificaremos cuando se confirme.",
+        "Tu pago está siendo revisado. Te notificaremos cuando se confirme.",
+      cls: "toast--pending",
     },
   };
-
-  const current = config[status];
+  const c = config[status];
 
   return (
-    <div
-      className={`fixed top-4 right-4 z-50 ${current.bg} border-l-4 ${current.border} p-4 rounded-lg shadow-lg max-w-md animate-slide-in`}
-    >
-      <div className="flex items-start gap-3">
-        <div className={current.icon}>
-          {status === "success" && (
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                clipRule="evenodd"
-              />
-            </svg>
-          )}
-          {status === "failure" && (
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                clipRule="evenodd"
-              />
-            </svg>
-          )}
-          {status === "pending" && (
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-                clipRule="evenodd"
-              />
-            </svg>
-          )}
-        </div>
-        <div className="flex-1">
-          <h3 className="font-semibold text-gray-900">{current.title}</h3>
-          <p className="text-sm text-gray-700 mt-1">{current.message}</p>
-        </div>
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-            <path
-              fillRule="evenodd"
-              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-              clipRule="evenodd"
-            />
-          </svg>
-        </button>
+    <div className={`toast ${c.cls}`} role="alert" aria-live="assertive">
+      <span className="toast__icon">{c.icon}</span>
+      <div className="toast__body">
+        <p className="toast__title">{c.title}</p>
+        <p className="toast__message">{c.message}</p>
       </div>
+      <button onClick={onClose} className="toast__close" aria-label="Cerrar">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path
+            d="M12 4L4 12M4 4l8 8"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+        </svg>
+      </button>
     </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+export default function DashboardClient({ session, user, payments }: Props) {
+  const [selectedInstallments, setSelectedInstallments] = useState<number[]>(
+    [],
+  );
+  const [isMPLoading, setIsMPLoading] = useState(false);
+  const [paymentNotification, setPaymentNotification] = useState<
+    "success" | "failure" | "pending" | null
+  >(null);
+
+  const installmentAmount = user.totalAmount / user.installments;
+  const progressPct = Math.min((user.paidAmount / user.totalAmount) * 100, 100);
+  const paidInstallmentsCount = Math.round(
+    (user.paidAmount / user.totalAmount) * user.installments,
+  );
+  const isFullyPaid = user.balance === 0;
+
+  const hasOverdue = Array.from(
+    { length: user.installments },
+    (_, i) => i + 1,
+  ).some((num) => {
+    const isPaid = payments.some(
+      (p) => p.installmentNumber === num && p.status === "APPROVED",
+    );
+    const isPending = payments.some(
+      (p) => p.installmentNumber === num && p.status === "PENDING",
+    );
+    return (
+      !isPaid &&
+      !isPending &&
+      new Date() > getInstallmentDueDate(user.createdAt, num)
+    );
+  });
+
+  const selectedTotal = selectedInstallments.length * installmentAmount;
+
+  const handleMercadoPagoPayment = async () => {
+    if (selectedInstallments.length === 0) return;
+    setIsMPLoading(true);
+    try {
+      const response = await fetch("/api/mercadopago/create-preference", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          installments: selectedInstallments,
+          totalAmount: selectedTotal,
+        }),
+      });
+      const data = await response.json();
+      if (!data.success) {
+        alert(data.error || "Error al crear la preferencia de pago");
+        setIsMPLoading(false);
+        return;
+      }
+      window.location.href = data.init_point;
+    } catch (err) {
+      console.error("MercadoPago error:", err);
+      alert("Error al procesar el pago. Intentá nuevamente.");
+      setIsMPLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("payment") as
+      | "success"
+      | "failure"
+      | "pending"
+      | null;
+    if (status) {
+      setPaymentNotification(status);
+      window.history.replaceState({}, "", "/dashboard");
+      setTimeout(() => setPaymentNotification(null), 6000);
+    }
+  }, []);
+
+  return (
+    <>
+      <style>{`
+        /* ── Design Tokens ───────────────────────────────── */
+        .alas-root {
+
+          /* Surfaces */
+          --bg:           #f4f4f5;
+          --surface:      #ffffff;
+          --surface-2:    #f4f4f5;
+          --surface-3:    #ebebec;
+
+          /* Brand */
+          --primary:      #00618e;
+          --primary-mid:  #0089c6;
+          --primary-lite: #3eb7fe;
+          --primary-tint: rgba(0, 97, 142, 0.07);
+
+          /* Semantic */
+          --success:      #0f7b55;
+          --success-bg:   #ecfdf5;
+          --success-border: rgba(15,123,85,0.2);
+          --danger:       #b91c1c;
+          --danger-bg:    #fff1f1;
+          --danger-border: rgba(185,28,28,0.2);
+          --warning:      #a16207;
+          --warning-bg:   #fefce8;
+          --warning-border: rgba(161,98,7,0.2);
+
+          /* Text */
+          --text-1:  #18181b;
+          --text-2:  #52525b;
+          --text-3:  #a1a1aa;
+
+          /* Geometry */
+          --r-sm:   0.625rem;
+          --r-md:   1rem;
+          --r-lg:   1.5rem;
+          --r-xl:   2rem;
+          --r-full: 9999px;
+
+          /* Shadows */
+          --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+          --shadow-md: 0 4px 16px rgba(0,0,0,0.07), 0 2px 6px rgba(0,0,0,0.04);
+          --shadow-lg: 0 12px 40px rgba(0,0,0,0.09), 0 4px 12px rgba(0,0,0,0.05);
+
+          font-family: var(--font-body);
+          background: var(--bg);
+          min-height: 100svh;
+          color: var(--text-1);
+          -webkit-font-smoothing: antialiased;
+        }
+        .alas-root *, .alas-root *::before, .alas-root *::after {
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0;
+        }
+
+        /* ── Header ──────────────────────────────────────── */
+        .header {
+          background: var(--surface);
+          border-bottom: 1px solid var(--surface-3);
+          position: sticky;
+          top: 0;
+          z-index: 50;
+        }
+        .header__inner {
+          max-width: 680px;
+          margin: 0 auto;
+          padding: 0.875rem 1.25rem;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+        }
+        .header__brand {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          min-width: 0;
+        }
+        .header__logo {
+          width: 2.25rem;
+          height: 2.25rem;
+          border-radius: 0.75rem;
+          background: linear-gradient(135deg, var(--primary) 0%, var(--primary-lite) 100%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          box-shadow: 0 4px 10px rgba(0,97,142,0.3);
+        }
+        .header__text { min-width: 0; }
+        .header__name {
+          font-family: var(--font-display);
+          font-size: 0.9375rem;
+          font-weight: 700;
+          color: var(--text-1);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .header__school {
+          font-size: 0.75rem;
+          color: var(--text-3);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 220px;
+        }
+        .btn-signout {
+          display: flex;
+          align-items: center;
+          gap: 0.375rem;
+          padding: 0.5rem 0.875rem;
+          border-radius: var(--r-full);
+          font-family: var(--font-body);
+          font-size: 0.8125rem;
+          font-weight: 600;
+          color: var(--danger);
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          transition: background 0.15s;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+        .btn-signout:hover { background: var(--danger-bg); }
+
+        /* ── Main layout ─────────────────────────────────── */
+        .main {
+          max-width: 680px;
+          margin: 0 auto;
+          padding: 1.25rem 1.25rem 5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        /* ── Balance Card ────────────────────────────────── */
+        .balance-card {
+          border-radius: var(--r-xl);
+          background: linear-gradient(135deg, #004e73 0%, var(--primary) 35%, var(--primary-mid) 70%, var(--primary-lite) 100%);
+          padding: 1.625rem 1.5rem;
+          color: white;
+          position: relative;
+          overflow: hidden;
+          box-shadow: 0 12px 40px rgba(0,97,142,0.35), 0 4px 12px rgba(0,97,142,0.2);
+        }
+        .balance-card::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: url("data:image/svg+xml,%3Csvg width='300' height='300' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='260' cy='60' r='140' fill='rgba(255,255,255,0.05)'/%3E%3Ccircle cx='40' cy='260' r='100' fill='rgba(255,255,255,0.04)'/%3E%3C/svg%3E") no-repeat right top;
+          pointer-events: none;
+        }
+        .balance-card__eyebrow {
+          font-size: 0.6875rem;
+          font-weight: 600;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          opacity: 0.65;
+          margin-bottom: 0.375rem;
+        }
+        .balance-card__amount {
+          font-family: var(--font-display);
+          font-size: clamp(2.5rem, 10vw, 3.75rem);
+          font-weight: 800;
+          letter-spacing: -0.03em;
+          line-height: 1;
+          margin-bottom: 0.25rem;
+        }
+        .balance-card__of {
+          font-size: 0.875rem;
+          opacity: 0.6;
+          margin-bottom: 1.375rem;
+        }
+        .balance-card__progress-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 0.75rem;
+          opacity: 0.8;
+          margin-bottom: 0.5rem;
+        }
+        .balance-card__pct {
+          font-family: var(--font-display);
+          font-weight: 700;
+          font-size: 0.875rem;
+        }
+        .balance-card__track {
+          width: 100%;
+          height: 6px;
+          background: rgba(255,255,255,0.18);
+          border-radius: var(--r-full);
+          overflow: hidden;
+          margin-bottom: 1.375rem;
+        }
+        .balance-card__fill {
+          height: 100%;
+          background: white;
+          border-radius: var(--r-full);
+          transition: width 1s cubic-bezier(0.34, 1.2, 0.64, 1);
+          box-shadow: 0 0 8px rgba(255,255,255,0.6);
+        }
+        .balance-card__stats {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 0.5rem;
+          padding-top: 1.125rem;
+          border-top: 1px solid rgba(255,255,255,0.15);
+        }
+        .balance-card__stat-label {
+          font-size: 0.6875rem;
+          opacity: 0.6;
+          margin-bottom: 0.25rem;
+          font-weight: 500;
+        }
+        .balance-card__stat-value {
+          font-family: var(--font-display);
+          font-size: 1rem;
+          font-weight: 700;
+        }
+
+        /* ── Alert overdue ───────────────────────────────── */
+        .alert-overdue {
+          border-radius: var(--r-lg);
+          background: var(--danger-bg);
+          border: 1px solid var(--danger-border);
+          padding: 0.875rem 1rem;
+          display: flex;
+          gap: 0.75rem;
+          align-items: flex-start;
+        }
+        .alert-overdue__icon-wrap {
+          width: 1.75rem;
+          height: 1.75rem;
+          border-radius: var(--r-sm);
+          background: var(--danger);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          color: white;
+        }
+        .alert-overdue__title {
+          font-size: 0.875rem;
+          font-weight: 700;
+          color: var(--danger);
+        }
+        .alert-overdue__body {
+          font-size: 0.8125rem;
+          color: #7f1d1d;
+          margin-top: 0.2rem;
+          line-height: 1.4;
+        }
+
+        /* ── Cards ───────────────────────────────────────── */
+        .card {
+          background: var(--surface);
+          border-radius: var(--r-xl);
+          box-shadow: var(--shadow-sm);
+          overflow: hidden;
+        }
+        .card__header {
+          padding: 1.25rem 1.25rem 0;
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 0.75rem;
+          flex-wrap: wrap;
+        }
+        .card__title {
+          font-family: var(--font-display);
+          font-size: 1rem;
+          font-weight: 700;
+          color: var(--text-1);
+        }
+        .card__subtitle {
+          font-size: 0.8125rem;
+          color: var(--text-3);
+          margin-top: 0.2rem;
+        }
+        .card__body { padding: 1.25rem; }
+
+        /* ── Product row ─────────────────────────────────── */
+        .product-row {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+        .product-row__icon-wrap {
+          width: 3rem;
+          height: 3rem;
+          border-radius: var(--r-md);
+          background: var(--primary-tint);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          color: var(--primary);
+        }
+        .product-row__name {
+          font-family: var(--font-display);
+          font-weight: 700;
+          font-size: 0.9375rem;
+          color: var(--text-1);
+        }
+        .product-row__desc {
+          font-size: 0.8125rem;
+          color: var(--text-2);
+          margin-top: 0.2rem;
+        }
+        .product-row__size {
+          display: inline-flex;
+          align-items: center;
+          margin-top: 0.375rem;
+          padding: 0.2rem 0.625rem;
+          background: var(--surface-2);
+          border-radius: var(--r-full);
+          font-size: 0.6875rem;
+          font-weight: 700;
+          color: var(--text-2);
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+        }
+
+        /* ── Pay CTA ─────────────────────────────────────── */
+        .pay-cta {
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 0.5rem;
+        }
+        .pay-cta__total {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0.875rem 1rem;
+          background: var(--primary-tint);
+          border-radius: var(--r-md);
+          margin-bottom: 0.25rem;
+        }
+        .pay-cta__total-label {
+          font-size: 0.8125rem;
+          font-weight: 600;
+          color: var(--primary);
+        }
+        .pay-cta__total-amount {
+          font-family: var(--font-display);
+          font-size: 1.25rem;
+          font-weight: 800;
+          color: var(--primary);
+          letter-spacing: -0.02em;
+        }
+        .btn-mp {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.625rem;
+          width: 100%;
+          padding: 1rem 1.5rem;
+          border-radius: var(--r-full);
+          font-family: var(--font-display);
+          font-size: 0.9375rem;
+          font-weight: 700;
+          cursor: pointer;
+          border: none;
+          transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .btn-mp--active {
+          background: linear-gradient(135deg, #009EE3 0%, #00c2f0 100%);
+          color: white;
+          box-shadow: 0 6px 20px rgba(0,158,227,0.4);
+        }
+        .btn-mp--active:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 10px 28px rgba(0,158,227,0.45);
+        }
+        .btn-mp--active:active { transform: scale(0.99); }
+        .btn-mp--disabled {
+          background: var(--surface-3);
+          color: var(--text-3);
+          cursor: not-allowed;
+        }
+        .btn-mp__spinner {
+          width: 1.125rem;
+          height: 1.125rem;
+          border: 2px solid rgba(255,255,255,0.3);
+          border-top-color: white;
+          border-radius: 50%;
+          animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .pay-cta__security {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.375rem;
+          font-size: 0.75rem;
+          color: var(--text-3);
+        }
+        .pay-cta__security svg { color: var(--success); }
+
+        /* ── Installments wrapper ────────────────────────── */
+        .installments-wrapper {
+          padding: 0 1.25rem 1.25rem;
+        }
+
+        /* ── Payment history ─────────────────────────────── */
+        .payment-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+          padding: 0 1.25rem 1.25rem;
+        }
+        .payment-item {
+          display: flex;
+          align-items: center;
+          gap: 0.875rem;
+          padding: 0.875rem;
+          border-radius: var(--r-lg);
+          background: var(--surface-2);
+          transition: background 0.12s;
+        }
+        .payment-item:hover { background: var(--surface-3); }
+        .payment-item__avatar {
+          width: 2.5rem;
+          height: 2.5rem;
+          border-radius: var(--r-md);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          font-size: 1rem;
+        }
+        .payment-item__avatar--approved { background: var(--success-bg); }
+        .payment-item__avatar--rejected { background: var(--danger-bg); }
+        .payment-item__avatar--pending  { background: var(--warning-bg); }
+        .payment-item__info { flex: 1; min-width: 0; }
+        .payment-item__title {
+          font-weight: 600;
+          font-size: 0.875rem;
+          color: var(--text-1);
+        }
+        .payment-item__date {
+          font-size: 0.75rem;
+          color: var(--text-3);
+          margin-top: 0.125rem;
+        }
+        .payment-item__rejection {
+          font-size: 0.75rem;
+          color: var(--danger);
+          margin-top: 0.125rem;
+        }
+        .payment-item__right { text-align: right; flex-shrink: 0; }
+        .payment-item__amount {
+          font-family: var(--font-display);
+          font-weight: 700;
+          font-size: 0.9375rem;
+          color: var(--text-1);
+        }
+        .badge {
+          display: inline-flex;
+          align-items: center;
+          padding: 0.2rem 0.5rem;
+          border-radius: var(--r-full);
+          font-size: 0.6875rem;
+          font-weight: 700;
+          letter-spacing: 0.02em;
+          margin-top: 0.25rem;
+        }
+        .badge--approved { background: var(--success-bg); color: var(--success); }
+        .badge--rejected { background: var(--danger-bg);  color: var(--danger); }
+        .badge--pending  { background: var(--warning-bg); color: var(--warning); }
+
+        /* ── Empty state ─────────────────────────────────── */
+        .empty-state {
+          padding: 2.5rem 1.25rem;
+          text-align: center;
+        }
+        .empty-state__icon {
+          width: 3rem;
+          height: 3rem;
+          margin: 0 auto 0.875rem;
+          color: var(--text-3);
+        }
+        .empty-state__title {
+          font-family: var(--font-display);
+          font-weight: 700;
+          font-size: 0.9375rem;
+          color: var(--text-2);
+          margin-bottom: 0.25rem;
+        }
+        .empty-state__sub {
+          font-size: 0.8125rem;
+          color: var(--text-3);
+        }
+
+        /* ── Toast ───────────────────────────────────────── */
+        .toast {
+          position: fixed;
+          bottom: 1.5rem;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 100;
+          display: flex;
+          align-items: flex-start;
+          gap: 0.75rem;
+          padding: 1rem 1.125rem;
+          border-radius: var(--r-xl);
+          box-shadow: var(--shadow-lg);
+          max-width: calc(100vw - 2.5rem);
+          width: 380px;
+          animation: toastIn 0.35s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+        }
+        @keyframes toastIn {
+          from { opacity: 0; transform: translateX(-50%) translateY(1rem); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        .toast--success { background: var(--success-bg); border: 1px solid var(--success-border); }
+        .toast--failure { background: var(--danger-bg);  border: 1px solid var(--danger-border); }
+        .toast--pending { background: var(--warning-bg); border: 1px solid var(--warning-border); }
+        .toast__icon {
+          width: 2rem;
+          height: 2rem;
+          border-radius: var(--r-sm);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.9375rem;
+          font-weight: 700;
+          flex-shrink: 0;
+        }
+        .toast--success .toast__icon { background: var(--success); color: white; }
+        .toast--failure .toast__icon { background: var(--danger);  color: white; }
+        .toast--pending .toast__icon { background: var(--warning); color: white; }
+        .toast__body { flex: 1; }
+        .toast__title { font-weight: 700; font-size: 0.875rem; color: var(--text-1); }
+        .toast__message { font-size: 0.8125rem; color: var(--text-2); margin-top: 0.2rem; line-height: 1.4; }
+        .toast__close {
+          background: none;
+          border: none;
+          color: var(--text-3);
+          cursor: pointer;
+          padding: 0.25rem;
+          flex-shrink: 0;
+          border-radius: var(--r-sm);
+          transition: background 0.12s, color 0.12s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .toast__close:hover { background: var(--surface-3); color: var(--text-1); }
+      `}</style>
+
+      <div className="alas-root">
+        {/* ── Header ── */}
+        <header className="header">
+          <div className="header__inner">
+            <div className="header__brand">
+              <div className="header__logo">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z" />
+                  <path d="M16 3H8L6 7h12l-2-4z" />
+                </svg>
+              </div>
+              <div className="header__text">
+                <p className="header__name">
+                  Hola, {session.user.firstName} 👋
+                </p>
+                <p className="header__school">
+                  {user.schoolDivision?.school?.name} ·{" "}
+                  {user.schoolDivision?.division}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="btn-signout"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
+              </svg>
+              Salir
+            </button>
+          </div>
+        </header>
+
+        {/* ── Main ── */}
+        <main className="main">
+          {/* Balance Card */}
+          <div className="balance-card">
+            <p className="balance-card__eyebrow">Saldo pendiente</p>
+            <p className="balance-card__amount">{formatARS(user.balance)}</p>
+            <p className="balance-card__of">
+              de {formatARS(user.totalAmount)} total
+            </p>
+
+            <div className="balance-card__progress-row">
+              <span>Progreso de pago</span>
+              <span className="balance-card__pct">
+                {Math.round(progressPct)}%
+              </span>
+            </div>
+            <div className="balance-card__track">
+              <div
+                className="balance-card__fill"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+
+            <div className="balance-card__stats">
+              <div>
+                <p className="balance-card__stat-label">Pagado</p>
+                <p className="balance-card__stat-value">
+                  {formatARS(user.paidAmount)}
+                </p>
+              </div>
+              <div>
+                <p className="balance-card__stat-label">Cuotas</p>
+                <p className="balance-card__stat-value">
+                  {paidInstallmentsCount}/{user.installments}
+                </p>
+              </div>
+              <div>
+                <p className="balance-card__stat-label">Estado</p>
+                <p className="balance-card__stat-value">
+                  {isFullyPaid ? "✅ Al día" : "⏳ Activo"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Overdue Alert */}
+          {hasOverdue && (
+            <div className="alert-overdue" role="alert">
+              <div className="alert-overdue__icon-wrap">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              </div>
+              <div>
+                <p className="alert-overdue__title">Tenés cuotas vencidas</p>
+                <p className="alert-overdue__body">
+                  Ponete al día con tus pagos para evitar inconvenientes.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Product */}
+          <div className="card">
+            <div className="card__body">
+              <div className="product-row">
+                <div className="product-row__icon-wrap">
+                  <svg
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
+                    <line x1="3" y1="6" x2="21" y2="6" />
+                    <path d="M16 10a4 4 0 01-8 0" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="product-row__name">{user.product.name}</p>
+                  {user.product.description && (
+                    <p className="product-row__desc">
+                      {user.product.description}
+                    </p>
+                  )}
+                  {user.size && (
+                    <span className="product-row__size">Talle {user.size}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Installments + Pay */}
+          <div className="card">
+            <div className="card__header">
+              <div>
+                <p className="card__title">Cuotas</p>
+                <p className="card__subtitle">
+                  Seleccioná las que querés pagar
+                </p>
+              </div>
+            </div>
+
+            <div className="installments-wrapper">
+              <InstallmentsTable
+                totalInstallments={user.installments}
+                installmentAmount={installmentAmount}
+                existingPayments={payments}
+                onSelectionChange={setSelectedInstallments}
+                userCreatedAt={user.createdAt}
+              />
+            </div>
+
+            {/* Pay CTA */}
+            <div className="card__body" style={{ paddingTop: 0 }}>
+              <div className="pay-cta">
+                {selectedInstallments.length > 0 && (
+                  <div className="pay-cta__total">
+                    <span className="pay-cta__total-label">
+                      {selectedInstallments.length} cuota
+                      {selectedInstallments.length > 1 ? "s" : ""} seleccionada
+                      {selectedInstallments.length > 1 ? "s" : ""}
+                    </span>
+                    <span className="pay-cta__total-amount">
+                      {formatARS(selectedTotal)}
+                    </span>
+                  </div>
+                )}
+                <button
+                  onClick={handleMercadoPagoPayment}
+                  disabled={selectedInstallments.length === 0 || isMPLoading}
+                  className={`btn-mp ${selectedInstallments.length > 0 && !isMPLoading ? "btn-mp--active" : "btn-mp--disabled"}`}
+                >
+                  {isMPLoading ? (
+                    <>
+                      <div className="btn-mp__spinner" />
+                      Procesando...
+                    </>
+                  ) : (
+                    <Image
+                      src="/mp-logo.svg"
+                      alt="Pagar con Mercado Pago"
+                      width={160}
+                      height={65}
+                    />
+                  )}
+                </button>
+                {selectedInstallments.length > 0 && !isMPLoading && (
+                  <div className="pay-cta__security">
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M12 1.5l8.5 3v6c0 5.25-3.5 9.75-8.5 11C7 20.25 3.5 15.75 3.5 10.5v-6L12 1.5zm3.5 7.5l-4 4-1.5-1.5-1 1L11.5 15l5-5-1-1z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    Pago 100% seguro
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Payment History */}
+          <div className="card">
+            <div className="card__header">
+              <div>
+                <p className="card__title">Historial de pagos</p>
+                {payments.length > 0 && (
+                  <p className="card__subtitle">
+                    {payments.length} registro{payments.length > 1 ? "s" : ""}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {payments.length > 0 ? (
+              <div className="payment-list">
+                {payments.map((payment) => {
+                  const statusKey = payment.status.toLowerCase() as
+                    | "approved"
+                    | "rejected"
+                    | "pending";
+                  const statusMap = {
+                    approved: { emoji: "✓", label: "Aprobado" },
+                    rejected: { emoji: "✕", label: "Rechazado" },
+                    pending: { emoji: "◷", label: "Pendiente" },
+                  };
+                  const s = statusMap[statusKey] ?? statusMap.pending;
+
+                  return (
+                    <div key={payment.id} className="payment-item">
+                      <div
+                        className={`payment-item__avatar payment-item__avatar--${statusKey}`}
+                      >
+                        <span
+                          style={{
+                            fontSize: "1.125rem",
+                            fontWeight: 700,
+                            color:
+                              statusKey === "approved"
+                                ? "var(--success)"
+                                : statusKey === "rejected"
+                                  ? "var(--danger)"
+                                  : "var(--warning)",
+                          }}
+                        >
+                          {s.emoji}
+                        </span>
+                      </div>
+                      <div className="payment-item__info">
+                        <p className="payment-item__title">
+                          {payment.installmentNumber
+                            ? `Cuota ${payment.installmentNumber}`
+                            : "Sin cuota asignada"}
+                        </p>
+                        <p className="payment-item__date">
+                          {new Date(payment.submittedAt).toLocaleDateString(
+                            "es-AR",
+                            {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            },
+                          )}
+                        </p>
+                        {payment.status === "REJECTED" &&
+                          payment.rejectionReason && (
+                            <p className="payment-item__rejection">
+                              {payment.rejectionReason}
+                            </p>
+                          )}
+                      </div>
+                      <div className="payment-item__right">
+                        <p className="payment-item__amount">
+                          {formatARS(payment.amount)}
+                        </p>
+                        <span className={`badge badge--${statusKey}`}>
+                          {s.label}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="empty-state">
+                <svg
+                  className="empty-state__icon"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+                <p className="empty-state__title">Sin pagos todavía</p>
+                <p className="empty-state__sub">
+                  Seleccioná cuotas arriba para empezar
+                </p>
+              </div>
+            )}
+          </div>
+        </main>
+
+        {/* Toast */}
+        {paymentNotification && (
+          <PaymentNotification
+            status={paymentNotification}
+            onClose={() => setPaymentNotification(null)}
+          />
+        )}
+      </div>
+    </>
   );
 }

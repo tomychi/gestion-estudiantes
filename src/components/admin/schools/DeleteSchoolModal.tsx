@@ -17,32 +17,29 @@ export default function DeleteSchoolModal({
   onSchoolDeleted,
 }: Props) {
   const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string>("");
+  const [error, setError] = useState("");
+
+  const hasStudents = (school.studentCount ?? 0) > 0;
 
   const handleDelete = () => {
     setError("");
-
     startTransition(async () => {
       try {
         const res = await fetch(`/api/admin/schools/${school.id}`, {
           method: "DELETE",
         });
-
         const result = await res.json();
-
         if (!result.success) {
           setError(result.error || "Error al eliminar el colegio");
           return;
         }
-
         onSchoolDeleted(school.id);
       } catch (err) {
-        const errorMessage =
+        setError(
           err instanceof Error
             ? err.message
-            : "Ocurrió un error. Intentá nuevamente.";
-
-        setError(errorMessage);
+            : "Ocurrió un error. Intentá nuevamente.",
+        );
       }
     });
   };
@@ -55,53 +52,178 @@ export default function DeleteSchoolModal({
   };
 
   if (!isOpen) return null;
-  const hasStudents = (school.studentCount ?? 0) > 0;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-screen items-center justify-center p-4">
-        {/* Backdrop */}
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
-          onClick={handleClose}
-        />
+    <>
+      <style>{`
+        .dsm-overlay {
+          position: fixed; inset: 0;
+          background: rgba(0,0,0,0.5);
+          z-index: 50;
+          display: flex; align-items: center; justify-content: center;
+          padding: 1rem;
+          backdrop-filter: blur(2px);
+        }
+        .dsm-modal {
+          --font-display: 'Plus Jakarta Sans', sans-serif;
+          --font-body:    'DM Sans', sans-serif;
+          --surface:      #ffffff;
+          --surface-2:    #f4f4f5;
+          --surface-3:    #e4e4e7;
+          --text-1:       #18181b;
+          --text-2:       #52525b;
+          --text-3:       #a1a1aa;
+          --danger:       #b91c1c;
+          --danger-bg:    rgba(185,28,28,0.08);
+          --danger-border: rgba(185,28,28,0.2);
+          --warning:      #a16207;
+          --warning-bg:   rgba(161,98,7,0.08);
+          --warning-border: rgba(161,98,7,0.2);
+          --r-md:  0.875rem;
+          --r-xl:  1.75rem;
+          --r-full: 9999px;
 
-        {/* Modal */}
-        <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-          {/* Icon */}
-          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
-            <svg
-              className="h-6 w-6 text-red-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
+          background: var(--surface);
+          border-radius: var(--r-xl);
+          box-shadow: 0 24px 60px rgba(0,0,0,0.18);
+          width: 100%;
+          max-width: 420px;
+          font-family: var(--font-body);
+          -webkit-font-smoothing: antialiased;
+          overflow: hidden;
+        }
+        .dsm-modal *, .dsm-modal *::before, .dsm-modal *::after {
+          box-sizing: border-box; margin: 0; padding: 0;
+        }
+
+        /* Header */
+        .dsm-header {
+          padding: 1.5rem 1.5rem 1.125rem;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          border-bottom: 1px solid var(--surface-3);
+        }
+        .dsm-header__icon {
+          width: 3rem; height: 3rem;
+          border-radius: 50%;
+          background: var(--danger-bg);
+          border: 1px solid var(--danger-border);
+          display: flex; align-items: center; justify-content: center;
+          color: var(--danger);
+          margin-bottom: 1rem;
+        }
+        .dsm-header__title {
+          font-family: var(--font-display);
+          font-size: 1.125rem; font-weight: 800;
+          color: var(--text-1);
+          margin-bottom: 0.375rem;
+        }
+        .dsm-header__sub { font-size: 0.875rem; color: var(--text-2); line-height: 1.4; }
+        .dsm-header__sub strong { font-weight: 700; color: var(--text-1); }
+
+        /* Body */
+        .dsm-body {
+          padding: 1.125rem 1.5rem;
+          display: flex; flex-direction: column; gap: 0.75rem;
+        }
+
+        /* Alert banners */
+        .dsm-alert {
+          border-radius: var(--r-md);
+          padding: 0.875rem 1rem;
+          display: flex; gap: 0.625rem; align-items: flex-start;
+          font-size: 0.8125rem; line-height: 1.4;
+        }
+        .dsm-alert__icon { flex-shrink: 0; margin-top: 0.05rem; }
+        .dsm-alert--danger {
+          background: var(--danger-bg);
+          border: 1px solid var(--danger-border);
+          color: var(--danger);
+        }
+        .dsm-alert--warning {
+          background: var(--warning-bg);
+          border: 1px solid var(--warning-border);
+          color: var(--warning);
+        }
+        .dsm-alert__title { font-weight: 700; margin-bottom: 0.2rem; }
+        .dsm-alert--danger .dsm-alert__body  { color: #7f1d1d; }
+        .dsm-alert--warning .dsm-alert__body { color: #713f12; }
+
+        /* Footer */
+        .dsm-footer {
+          display: flex; gap: 0.625rem;
+          padding: 1rem 1.5rem 1.375rem;
+          border-top: 1px solid var(--surface-3);
+        }
+        .dsm-btn {
+          display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+          padding: 0.75rem 1.25rem;
+          border-radius: var(--r-full);
+          font-family: var(--font-display);
+          font-size: 0.9375rem; font-weight: 700;
+          border: none; cursor: pointer;
+          transition: transform 0.12s, box-shadow 0.12s, background 0.12s, opacity 0.12s;
+        }
+        .dsm-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+        .dsm-btn--cancel { background: var(--surface-2); color: var(--text-2); flex-shrink: 0; }
+        .dsm-btn--cancel:hover:not(:disabled) { background: var(--surface-3); }
+        .dsm-btn--delete {
+          flex: 1;
+          background: var(--danger);
+          color: white;
+          box-shadow: 0 4px 12px rgba(185,28,28,0.25);
+        }
+        .dsm-btn--delete:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 16px rgba(185,28,28,0.35);
+        }
+        .dsm-spinner {
+          width: 1rem; height: 1rem;
+          border: 2px solid rgba(255,255,255,0.3);
+          border-top-color: white;
+          border-radius: 50%;
+          animation: dsm-spin 0.7s linear infinite;
+        }
+        @keyframes dsm-spin { to { transform: rotate(360deg); } }
+      `}</style>
+
+      <div className="dsm-overlay" onClick={handleClose}>
+        <div className="dsm-modal" onClick={(e) => e.stopPropagation()}>
+          {/* Header */}
+          <div className="dsm-header">
+            <div className="dsm-header__icon">
+              <svg
+                width="20"
+                height="20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
-          </div>
-
-          {/* Header */}
-          <div className="text-center mb-4">
-            <h2 className="text-xl font-bold text-gray-900 mb-2">
-              ¿Eliminar Colegio?
-            </h2>
-            <p className="text-gray-600">
-              Estás por eliminar{" "}
-              <span className="font-semibold">{school.name}</span>
+                viewBox="0 0 24 24"
+              >
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+                <path d="M10 11v6M14 11v6" />
+                <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
+              </svg>
+            </div>
+            <p className="dsm-header__title">¿Eliminar colegio?</p>
+            <p className="dsm-header__sub">
+              Estás por eliminar <strong>{school.name}</strong>
             </p>
           </div>
 
-          {/* Warning or Error */}
-          {hasStudents ? (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-              <div className="flex gap-3">
+          {/* Body */}
+          <div className="dsm-body">
+            {hasStudents ? (
+              <div className="dsm-alert dsm-alert--danger">
                 <svg
-                  className="w-5 h-5 text-red-600 shrink-0 mt-0.5"
+                  className="dsm-alert__icon"
+                  width="16"
+                  height="16"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                 >
@@ -111,22 +233,21 @@ export default function DeleteSchoolModal({
                     clipRule="evenodd"
                   />
                 </svg>
-                <div className="text-sm text-red-800">
-                  <p className="font-medium mb-1">No se puede eliminar</p>
-                  <p>
+                <div>
+                  <p className="dsm-alert__title">No se puede eliminar</p>
+                  <p className="dsm-alert__body">
                     Este colegio tiene{" "}
                     <strong>{school.studentCount} estudiante(s)</strong>{" "}
-                    asociados. Debés eliminar o reasignar los estudiantes
-                    primero.
+                    asociados. Eliminá o reasignalos primero.
                   </p>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-              <div className="flex gap-3">
+            ) : (
+              <div className="dsm-alert dsm-alert--warning">
                 <svg
-                  className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5"
+                  className="dsm-alert__icon"
+                  width="16"
+                  height="16"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                 >
@@ -136,71 +257,66 @@ export default function DeleteSchoolModal({
                     clipRule="evenodd"
                   />
                 </svg>
-                <div className="text-sm text-yellow-800">
-                  <p className="font-medium mb-1">
+                <div>
+                  <p className="dsm-alert__title">
                     Esta acción no se puede deshacer
                   </p>
-                  <p>
+                  <p className="dsm-alert__body">
                     Se eliminarán todas las divisiones asociadas a este colegio.
                   </p>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4">
-              {error}
-            </div>
-          )}
+            {error && (
+              <div className="dsm-alert dsm-alert--danger">
+                <svg
+                  className="dsm-alert__icon"
+                  width="14"
+                  height="14"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <span>{error}</span>
+              </div>
+            )}
+          </div>
 
-          {/* Actions */}
-          <div className="flex gap-3">
+          {/* Footer */}
+          <div className="dsm-footer">
             <button
               type="button"
+              className="dsm-btn dsm-btn--cancel"
               onClick={handleClose}
               disabled={isPending}
-              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors disabled:opacity-50"
             >
               Cancelar
             </button>
             {!hasStudents && (
               <button
+                type="button"
+                className="dsm-btn dsm-btn--delete"
                 onClick={handleDelete}
                 disabled={isPending}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors disabled:opacity-50 flex items-center justify-center"
               >
                 {isPending ? (
                   <>
-                    <svg
-                      className="animate-spin -ml-1 mr-2 h-5 w-5 text-white"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      />
-                    </svg>
-                    Eliminando...
+                    <div className="dsm-spinner" /> Eliminando...
                   </>
                 ) : (
-                  "Sí, Eliminar"
+                  "Sí, eliminar"
                 )}
               </button>
             )}
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

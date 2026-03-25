@@ -5,6 +5,7 @@ import * as XLSX from "xlsx";
 import { useRouter } from "next/navigation";
 import { SchoolBasic, ProductBasic, ParsedStudent, ImportData } from "@/types";
 import CreateProductModal from "../products/CreateProductModal";
+import { ConfirmModal } from "./ConfirmModal";
 
 interface Props {
   schools: SchoolBasic[];
@@ -31,6 +32,13 @@ export default function ImportStudentsForm({
   const [importData, setImportData] = useState<ImportData | null>(null);
   const [editableStudents, setEditableStudents] = useState<ParsedStudent[]>([]);
   const [selectedSchool, setSelectedSchool] = useState<string>("");
+
+  const [rowConfirmModal, setRowConfirmModal] = useState<{
+    isOpen: boolean;
+    index: number;
+    field: "totalAmount" | "installments";
+    pendingValue: string;
+  }>({ isOpen: false, index: 0, field: "totalAmount", pendingValue: "" });
 
   // Form fields
   const [selectedProduct, setSelectedProduct] = useState<string>("");
@@ -102,6 +110,10 @@ export default function ImportStudentsForm({
           size: "",
           email: "",
           phone: "",
+          // Per-student overrides — empty on load, populated when global values are set
+          productId: undefined,
+          totalAmount: undefined,
+          installments: undefined,
         }))
         .filter((s) => s.firstName && s.lastName && s.dni);
 
@@ -147,14 +159,20 @@ export default function ImportStudentsForm({
       setShowCreateProductModal(true);
       return;
     }
-
     setSelectedProduct(productId);
     const product = localProducts.find((p) => p.id === productId);
     if (product) {
       setTotalAmount(product.currentPrice.toString());
+      // Reset all per-row overrides so they follow the new global
+      setEditableStudents((prev) =>
+        prev.map((s) => ({
+          ...s,
+          productId: undefined,
+          totalAmount: undefined,
+        })),
+      );
     }
   };
-
   const handleProductCreated = (newProduct: ProductBasic) => {
     setLocalProducts((prev) => [...prev, newProduct]);
     setSelectedProduct(newProduct.id);
@@ -170,6 +188,9 @@ export default function ImportStudentsForm({
       size: "",
       email: "",
       phone: "",
+      productId: undefined,
+      totalAmount: undefined,
+      installments: undefined,
     };
     setEditableStudents([...editableStudents, newStudent]);
   };
@@ -224,7 +245,13 @@ export default function ImportStudentsForm({
             schoolId: selectedSchool,
             division: importData.division,
             year: importData.year,
-            students: editableStudents,
+            students: editableStudents.map((s) => ({
+              ...s,
+              productId: s.productId || selectedProduct,
+              totalAmount: s.totalAmount ?? parseFloat(totalAmount),
+              installments: s.installments ?? installments,
+            })),
+            // Global defaults (API los usa como fallback si el estudiante no trae los suyos)
             productId: selectedProduct,
             totalAmount: parseFloat(totalAmount),
             installments,
@@ -255,6 +282,45 @@ export default function ImportStudentsForm({
         isOpen={showCreateProductModal}
         onClose={() => setShowCreateProductModal(false)}
         onProductCreated={handleProductCreated}
+      />
+
+      <ConfirmModal
+        isOpen={rowConfirmModal.isOpen}
+        title="¿Modificar valor individual?"
+        message={
+          rowConfirmModal.field === "totalAmount"
+            ? `Vas a cambiar el monto a $${rowConfirmModal.pendingValue} solo para este estudiante.`
+            : `Vas a cambiar las cuotas a ${rowConfirmModal.pendingValue} solo para este estudiante.`
+        }
+        onConfirm={() => {
+          const updated = [...editableStudents];
+          if (rowConfirmModal.field === "totalAmount") {
+            updated[rowConfirmModal.index] = {
+              ...updated[rowConfirmModal.index],
+              totalAmount: parseFloat(rowConfirmModal.pendingValue),
+            };
+          } else {
+            updated[rowConfirmModal.index] = {
+              ...updated[rowConfirmModal.index],
+              installments: parseInt(rowConfirmModal.pendingValue),
+            };
+          }
+          setEditableStudents(updated);
+          setRowConfirmModal({
+            isOpen: false,
+            index: 0,
+            field: "totalAmount",
+            pendingValue: "",
+          });
+        }}
+        onCancel={() =>
+          setRowConfirmModal({
+            isOpen: false,
+            index: 0,
+            field: "totalAmount",
+            pendingValue: "",
+          })
+        }
       />
 
       {/* Download Template */}
@@ -661,6 +727,15 @@ export default function ImportStudentsForm({
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">
                       Teléfono
                     </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 min-w-[140px]">
+                      Producto
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 min-w-[90px]">
+                      Monto $
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 min-w-[70px]">
+                      Cuotas
+                    </th>
                     <th className="px-3 py-2 text-center text-xs font-medium text-gray-500">
                       Acciones
                     </th>
@@ -710,6 +785,7 @@ export default function ImportStudentsForm({
                           className="w-full px-4 py-2 text-sm border border-gray-300 focus:ring-2 focus:ring-indigo-500 rounded-lg bg-white text-gray-900 placeholder-gray-400"
                         />
                       </td>
+
                       <td className="px-3 py-2">
                         <input
                           type="text"
@@ -743,6 +819,97 @@ export default function ImportStudentsForm({
                           className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500"
                         />
                       </td>
+                      {/* Per-row product override */}
+                      <td className="px-3 py-2">
+                        <select
+                          value={student.productId ?? ""}
+                          onChange={(e) => {
+                            const val = e.target.value || undefined;
+                            const updated = [...editableStudents];
+                            updated[index] = {
+                              ...updated[index],
+                              productId: val,
+                              // Auto-fill amount from product if not manually set
+                              totalAmount: val
+                                ? localProducts.find((p) => p.id === val)
+                                    ?.currentPrice
+                                : undefined,
+                            };
+                            setEditableStudents(updated);
+                          }}
+                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-1 focus:ring-indigo-500"
+                        >
+                          <option value="">
+                            {selectedProduct
+                              ? (localProducts.find(
+                                  (p) => p.id === selectedProduct,
+                                )?.name ?? "Global")
+                              : "Sin producto"}
+                          </option>
+                          {localProducts.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+
+                      {/* Per-row amount override */}
+                      <td className="px-3 py-2">
+                        <input
+                          type="number"
+                          defaultValue={student.totalAmount ?? ""}
+                          onBlur={(e) => {
+                            if (!e.target.value) {
+                              const updated = [...editableStudents];
+                              updated[index] = {
+                                ...updated[index],
+                                totalAmount: undefined,
+                              };
+                              setEditableStudents(updated);
+                              return;
+                            }
+                            setRowConfirmModal({
+                              isOpen: true,
+                              index,
+                              field: "totalAmount",
+                              pendingValue: e.target.value,
+                            });
+                          }}
+                          placeholder={totalAmount || "Global"}
+                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </td>
+
+                      {/* Per-row installments override */}
+                      <td className="px-3 py-2">
+                        <input
+                          type="number"
+                          min="1"
+                          max="12"
+                          defaultValue={student.installments ?? ""}
+                          onBlur={(e) => {
+                            if (!e.target.value) {
+                              const updated = [...editableStudents];
+                              updated[index] = {
+                                ...updated[index],
+                                installments: undefined,
+                              };
+                              setEditableStudents(updated);
+                              return;
+                            }
+                            setRowConfirmModal({
+                              isOpen: true,
+                              index,
+                              field: "installments",
+                              pendingValue: e.target.value,
+                            });
+                          }}
+                          placeholder={installments.toString()}
+                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </td>
+
                       <td className="px-3 py-2 text-center">
                         <button
                           onClick={() => handleRemoveStudent(index)}
@@ -786,7 +953,14 @@ export default function ImportStudentsForm({
             </button>
             <button
               onClick={handleImport}
-              disabled={isPending || !selectedProduct || !totalAmount}
+              disabled={
+                isPending ||
+                !editableStudents.every(
+                  (s) =>
+                    (s.productId || selectedProduct) &&
+                    (s.totalAmount ?? totalAmount),
+                )
+              }
               className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium transition-colors disabled:opacity-50 flex items-center justify-center"
             >
               {isPending ? (

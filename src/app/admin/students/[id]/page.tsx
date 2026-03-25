@@ -1,4 +1,3 @@
-// src/app/admin/students/[id]/page.tsx
 import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
@@ -19,134 +18,107 @@ interface PageProps {
 
 export default async function StudentDetailPage({ params }: PageProps) {
   const session = await getServerSession(authOptions);
-
-  if (!session || session.user.role !== "ADMIN") {
-    redirect("/login");
-  }
+  if (!session || session.user.role !== "ADMIN") redirect("/login");
 
   const { id: studentId } = await params;
-
   const supabase = createAdminClient();
 
-  // Get student data
   const { data: student, error: studentError } = await supabase
     .from("User")
     .select(
-      `
-      *,
-      schoolDivision:SchoolDivision(
-        *,
-        school:School(*)
-      ),
-      product:Product(*)
-    `,
+      `*, schoolDivision:SchoolDivision(*, school:School(*)), product:Product(*)`,
     )
     .eq("id", studentId)
     .eq("role", "STUDENT")
     .single();
 
-  if (studentError || !student) {
-    redirect("/admin/students");
-  }
+  if (studentError || !student) redirect("/admin/students");
 
-  // Get all payments
   const { data: payments } = await supabase
     .from("Payment")
     .select("*")
     .eq("userId", studentId)
     .order("submittedAt", { ascending: false });
 
-  // Calculate payment stats
   const approvedPayments =
-    payments?.filter((p) => p.status === "APPROVED") || [];
-  const pendingPayments = payments?.filter((p) => p.status === "PENDING") || [];
+    payments?.filter((p) => p.status === "APPROVED") ?? [];
+  const pendingPayments = payments?.filter((p) => p.status === "PENDING") ?? [];
   const rejectedPayments =
-    payments?.filter((p) => p.status === "REJECTED") || [];
+    payments?.filter((p) => p.status === "REJECTED") ?? [];
 
-  // Calculate installments status
   const installmentStatus = Array.from(
     { length: student.installments },
     (_, i) => {
-      const installmentNum = i + 1;
-      const installmentAmount = student.totalAmount / student.installments;
-
-      // Sumar TODOS los pagos aprobados para esta cuota
+      const num = i + 1;
+      const amount = student.totalAmount / student.installments;
       const paymentsForInstallment =
         payments?.filter(
-          (p) =>
-            p.installmentNumber === installmentNum && p.status === "APPROVED",
-        ) || [];
-
-      const totalPaidForInstallment = paymentsForInstallment.reduce(
-        (sum, p) => sum + p.amount,
+          (p) => p.installmentNumber === num && p.status === "APPROVED",
+        ) ?? [];
+      const totalPaid = paymentsForInstallment.reduce(
+        (s, p) => s + p.amount,
         0,
       );
-
-      // La cuota está pagada si el total pagado >= monto de la cuota
-      const isPaid = totalPaidForInstallment >= installmentAmount;
-
-      // Obtener fecha del último pago
-      const lastPayment =
-        paymentsForInstallment.length > 0
-          ? paymentsForInstallment[paymentsForInstallment.length - 1]
-          : null;
-
+      const isPaid = totalPaid >= amount;
+      const lastPayment = paymentsForInstallment.at(-1) ?? null;
       return {
-        number: installmentNum,
-        amount: installmentAmount, // Siempre mostrar el monto fijo de la cuota
+        number: num,
+        amount,
         paid: isPaid,
-        amountPaid: totalPaidForInstallment, // 🆕 Cuánto se pagó realmente
-        paymentDate: lastPayment?.paymentDate || null,
+        amountPaid: totalPaid,
+        paymentDate: lastPayment?.paymentDate ?? null,
       };
     },
   );
 
   return (
     <AdminLayout session={session}>
-      <div className="space-y-6">
-        {/* Header with back button */}
-        <div className="flex items-center gap-4">
-          <Link
-            href="/admin/students"
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <svg
-              className="w-6 h-6 text-gray-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-          </Link>
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold text-gray-900">
-              {student.firstName} {student.lastName}
-            </h1>
-            <p className="text-gray-600 mt-1">
-              DNI: {student.dni} • {student.schoolDivision?.school.name} -{" "}
-              {student.schoolDivision?.division}
-            </p>
-          </div>
-        </div>
+      <style>{`
+        .sdp-back {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.375rem;
+          font-size: 0.8125rem;
+          font-weight: 600;
+          color: #52525b;
+          text-decoration: none;
+          padding: 0.5rem 0.875rem 0.5rem 0.625rem;
+          border-radius: 9999px;
+          background: #ffffff;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+          transition: background 0.12s, transform 0.12s;
+          margin-bottom: 0.25rem;
+          width: fit-content;
+        }
+        .sdp-back:hover { background: #f4f4f5; transform: translateX(-2px); }
+      `}</style>
 
-        {/* Client Component with all the details */}
-        <StudentDetailClient
-          student={student}
-          payments={payments || []}
-          installmentStatus={installmentStatus}
-          stats={{
-            approved: approvedPayments.length,
-            pending: pendingPayments.length,
-            rejected: rejectedPayments.length,
-          }}
-        />
-      </div>
+      <Link href="/admin/students" className="sdp-back">
+        <svg
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          viewBox="0 0 24 24"
+        >
+          <polyline points="15 18 9 12 15 6" />
+        </svg>
+        Volver a estudiantes
+      </Link>
+
+      <StudentDetailClient
+        student={student}
+        payments={payments ?? []}
+        installmentStatus={installmentStatus}
+        stats={{
+          approved: approvedPayments.length,
+          pending: pendingPayments.length,
+          rejected: rejectedPayments.length,
+        }}
+      />
     </AdminLayout>
   );
 }

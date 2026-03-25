@@ -58,24 +58,12 @@ export default async function StudentsPage() {
 
   return (
     <AdminLayout session={session}>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Estudiantes</h1>
-            <p className="text-gray-600 mt-1">
-              Gestioná los estudiantes y sus pagos
-            </p>
-          </div>
-        </div>
-
-        {/* Students List */}
-        <StudentsList
-          students={students || []}
-          schools={schools || []}
-          products={products || []}
-        />
-      </div>
+      {/* Students List */}
+      <StudentsList
+        students={students || []}
+        schools={schools || []}
+        products={products || []}
+      />
     </AdminLayout>
   );
 }

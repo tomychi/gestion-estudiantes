@@ -9,7 +9,15 @@ interface Props {
   existingPayments: SerializedPayment[];
   onSelectionChange: (selectedInstallments: number[]) => void;
   disabled?: boolean;
-  userCreatedAt: string; // 🆕 NUEVO
+  userCreatedAt: string;
+}
+
+function formatARS(amount: number) {
+  return amount.toLocaleString("es-AR", {
+    style: "currency",
+    currency: "ARS",
+    maximumFractionDigits: 0,
+  });
 }
 
 export default function InstallmentsTable({
@@ -24,552 +32,414 @@ export default function InstallmentsTable({
     [],
   );
 
-  // Calculate which installments are paid or pending
-  const paidInstallments = new Set(
+  // ─── Derived sets ────────────────────────────────────────────────────────────
+
+  const paidSet = new Set(
     existingPayments
       .filter((p) => p.status === "APPROVED" && p.installmentNumber)
       .map((p) => p.installmentNumber as number),
   );
 
-  const pendingInstallments = new Set(
+  const pendingSet = new Set(
     existingPayments
       .filter((p) => p.status === "PENDING" && p.installmentNumber)
       .map((p) => p.installmentNumber as number),
   );
 
-  // Get payment date for each installment
-  const getPaymentDate = (installmentNum: number): string | null => {
-    const payment = existingPayments.find(
-      (p) => p.installmentNumber === installmentNum && p.status === "APPROVED",
+  // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+  const getDueDate = (num: number): Date | null => {
+    if (!userCreatedAt) return null;
+    const d = new Date(userCreatedAt);
+    d.setMonth(d.getMonth() + num);
+    d.setDate(15);
+    return d;
+  };
+
+  const isOverdue = (num: number): boolean => {
+    const due = getDueDate(num);
+    return (
+      !!due && !paidSet.has(num) && !pendingSet.has(num) && new Date() > due
     );
-    return payment?.submittedAt
-      ? new Date(payment.submittedAt).toLocaleDateString("es-AR")
+  };
+
+  const isDueSoon = (num: number): boolean => {
+    const due = getDueDate(num);
+    if (!due || paidSet.has(num) || pendingSet.has(num)) return false;
+    const days = Math.ceil((due.getTime() - Date.now()) / 86400000);
+    return days > 0 && days <= 7;
+  };
+
+  const formatDueDate = (num: number): string => {
+    const due = getDueDate(num);
+    return due
+      ? due.toLocaleDateString("es-AR", { day: "numeric", month: "short" })
+      : "-";
+  };
+
+  const getPaymentDate = (num: number): string | null => {
+    const p = existingPayments.find(
+      (p) => p.installmentNumber === num && p.status === "APPROVED",
+    );
+    return p?.submittedAt
+      ? new Date(p.submittedAt).toLocaleDateString("es-AR", {
+          day: "numeric",
+          month: "short",
+        })
       : null;
   };
 
-  // Y en handleInstallmentToggle, agregar la validación:
-  const handleInstallmentToggle = (installmentNum: number) => {
-    if (disabled) return;
+  // ─── Toggle ──────────────────────────────────────────────────────────────────
 
-    const isPaid = paidInstallments.has(installmentNum);
-    const isPending = pendingInstallments.has(installmentNum);
-
-    if (isPaid || isPending) return;
+  const handleToggle = (num: number) => {
+    if (disabled || paidSet.has(num) || pendingSet.has(num)) return;
 
     setSelectedInstallments((prev) => {
-      const newSelection = prev.includes(installmentNum)
-        ? prev.filter((n) => n !== installmentNum)
-        : [...prev, installmentNum].sort((a, b) => a - b);
-
-      // Notify parent in next tick to avoid setState during render
-      setTimeout(() => {
-        onSelectionChange(newSelection);
-      }, 0);
-
-      return newSelection;
+      const next = prev.includes(num)
+        ? prev.filter((n) => n !== num)
+        : [...prev, num].sort((a, b) => a - b);
+      setTimeout(() => onSelectionChange(next), 0);
+      return next;
     });
   };
 
-  const calculateTotal = () => {
-    return selectedInstallments.length * installmentAmount;
+  // ─── Status helpers ───────────────────────────────────────────────────────────
+
+  type Status =
+    | "paid"
+    | "pending"
+    | "selected"
+    | "overdue"
+    | "due-soon"
+    | "unpaid";
+
+  const getStatus = (num: number): Status => {
+    if (paidSet.has(num)) return "paid";
+    if (pendingSet.has(num)) return "pending";
+    if (selectedInstallments.includes(num)) return "selected";
+    if (isOverdue(num)) return "overdue";
+    if (isDueSoon(num)) return "due-soon";
+    return "unpaid";
   };
 
-  // Calculate due date for each installment
-  const getDueDate = (installmentNum: number): Date | null => {
-    if (!userCreatedAt) return null;
-
-    const createdAt = new Date(userCreatedAt);
-    const dueDay = 15; // TODO: Get from settings API
-
-    // First installment always due next month, rest follow sequentially
-    const monthsToAdd = installmentNum; // Installment 1 = +1 month, 2 = +2 months, etc.
-
-    const dueDate = new Date(createdAt);
-    dueDate.setMonth(dueDate.getMonth() + monthsToAdd);
-    dueDate.setDate(dueDay);
-
-    return dueDate;
+  const STATUS_CONFIG: Record<
+    Status,
+    {
+      rowCls: string;
+      badgeLabel: string;
+      badgeCls: string;
+      icon: string;
+    }
+  > = {
+    paid: {
+      rowCls: "row--paid",
+      badgeLabel: "Pagada",
+      badgeCls: "badge--paid",
+      icon: "✓",
+    },
+    pending: {
+      rowCls: "row--pending",
+      badgeLabel: "En revisión",
+      badgeCls: "badge--pending",
+      icon: "◷",
+    },
+    selected: {
+      rowCls: "row--selected",
+      badgeLabel: "Seleccionada",
+      badgeCls: "badge--selected",
+      icon: "●",
+    },
+    overdue: {
+      rowCls: "row--overdue",
+      badgeLabel: "Vencida",
+      badgeCls: "badge--overdue",
+      icon: "!",
+    },
+    "due-soon": {
+      rowCls: "",
+      badgeLabel: "Vence pronto",
+      badgeCls: "badge--soon",
+      icon: "◷",
+    },
+    unpaid: {
+      rowCls: "",
+      badgeLabel: "Pendiente",
+      badgeCls: "badge--unpaid",
+      icon: "",
+    },
   };
 
-  const isOverdue = (installmentNum: number): boolean => {
-    const dueDate = getDueDate(installmentNum);
-    if (!dueDate) return false;
-
-    const isPaid = paidInstallments.has(installmentNum);
-    const isPending = pendingInstallments.has(installmentNum);
-
-    return !isPaid && !isPending && new Date() > dueDate;
-  };
-
-  const isDueSoon = (installmentNum: number): boolean => {
-    const dueDate = getDueDate(installmentNum);
-    if (!dueDate) return false;
-
-    const isPaid = paidInstallments.has(installmentNum);
-    const isPending = pendingInstallments.has(installmentNum);
-
-    if (isPaid || isPending) return false;
-
-    const today = new Date();
-    const daysUntilDue = Math.ceil(
-      (dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
-    );
-
-    return daysUntilDue > 0 && daysUntilDue <= 7;
-  };
-
-  const formatDueDate = (installmentNum: number): string => {
-    const dueDate = getDueDate(installmentNum);
-    if (!dueDate) return "-";
-    return dueDate.toLocaleDateString("es-AR");
-  };
+  const installments = Array.from(
+    { length: totalInstallments },
+    (_, i) => i + 1,
+  );
 
   return (
-    <div className="space-y-4">
-      {/* Table Header */}
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">
-          Estado de Cuotas
-        </h3>
-        {selectedInstallments.length > 0 && (
-          <div className="text-sm">
-            <span className="font-medium text-indigo-600">
-              {selectedInstallments.length} cuota(s) seleccionada(s)
-            </span>
-          </div>
-        )}
-      </div>
+    <>
+      <style>{`
+        /* ── Tokens (inherit from parent where possible) ──── */
+        .it-root {
+          --it-paid-bg:     rgba(15,123,85,0.06);
+          --it-paid-border: rgba(15,123,85,0.15);
+          --it-paid-text:   #0f7b55;
+          --it-pending-bg:  rgba(161,98,7,0.07);
+          --it-pending-border: rgba(161,98,7,0.2);
+          --it-pending-text: #a16207;
+          --it-sel-bg:      rgba(0,97,142,0.07);
+          --it-sel-border:  rgba(0,97,142,0.3);
+          --it-sel-text:    #00618e;
+          --it-over-bg:     rgba(185,28,28,0.06);
+          --it-over-border: rgba(185,28,28,0.2);
+          --it-over-text:   #b91c1c;
+          --it-soon-bg:     rgba(234,88,12,0.07);
+          --it-soon-border: rgba(234,88,12,0.18);
+          --it-soon-text:   #c2410c;
+          --it-surface:     #f4f4f5;
+          --it-border:      #e4e4e7;
+          --it-text1:       #18181b;
+          --it-text2:       #52525b;
+          --it-text3:       #a1a1aa;
+          --it-primary:     #00618e;
+          --it-r:           0.875rem;
+          font-family: 'DM Sans', sans-serif;
+        }
+        .it-root *, .it-root *::before, .it-root *::after {
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0;
+        }
 
-      {/* Desktop Table View */}
-      <div className="hidden md:block overflow-hidden border border-gray-200 rounded-lg shadow-sm">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th
-                scope="col"
-                className="w-12 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                <input
-                  type="checkbox"
-                  disabled
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded cursor-not-allowed opacity-50"
-                />
-              </th>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                Cuota
-              </th>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                Monto
-              </th>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                Estado
-              </th>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                Vencimiento
-              </th>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                Fecha de Pago
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {Array.from({ length: totalInstallments }, (_, i) => i + 1).map(
-              (installmentNum) => {
-                const isPaid = paidInstallments.has(installmentNum);
-                const isPending = pendingInstallments.has(installmentNum);
-                const isSelected =
-                  selectedInstallments.includes(installmentNum);
-                const isDisabled = isPaid || isPending || disabled;
-                const paymentDate = getPaymentDate(installmentNum);
+        /* ── Grid ────────────────────────────────────────── */
+        .it-grid {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
 
-                return (
-                  <tr
-                    key={installmentNum}
-                    className={`transition-colors ${
-                      isSelected
-                        ? "bg-indigo-50"
-                        : isPaid
-                          ? "bg-green-50"
-                          : isPending
-                            ? "bg-yellow-50"
-                            : "hover:bg-gray-50"
-                    } ${!isDisabled && !isPaid && !isPending ? "cursor-pointer" : ""}`}
-                    onClick={() => handleInstallmentToggle(installmentNum)}
-                  >
-                    {/* Checkbox Column */}
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <input
-                        type="checkbox"
-                        checked={isPaid || isSelected}
-                        disabled={isDisabled}
-                        onChange={() => handleInstallmentToggle(installmentNum)}
-                        onClick={(e) => e.stopPropagation()}
-                        className={`h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded ${
-                          isDisabled
-                            ? "cursor-not-allowed opacity-50"
-                            : "cursor-pointer"
-                        }`}
-                      />
-                    </td>
+        /* ── Row ─────────────────────────────────────────── */
+        .it-row {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          padding: 0.875rem;
+          border-radius: var(--it-r);
+          background: var(--it-surface);
+          border: 1.5px solid transparent;
+          transition: background 0.12s, border-color 0.12s, transform 0.1s;
+          user-select: none;
+        }
+        .it-row--interactive { cursor: pointer; }
+        .it-row--interactive:active { transform: scale(0.99); }
+        .it-row--interactive:hover { background: #ececed; }
+        .it-row--disabled { cursor: not-allowed; opacity: 0.7; }
 
-                    {/* Installment Number */}
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="text-sm font-medium text-gray-900">
-                          Cuota {installmentNum}
-                        </div>
-                        {isPaid && (
-                          <span
-                            className="ml-2 inline-flex items-center"
-                            title="Cuota pagada"
-                          >
-                            <svg
-                              className="w-5 h-5 text-green-500"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          </span>
-                        )}
-                        {isPending && (
-                          <span
-                            className="ml-2 inline-flex items-center"
-                            title="Pago en revisión"
-                          >
-                            <svg
-                              className="w-5 h-5 text-yellow-500"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          </span>
-                        )}
-                      </div>
-                    </td>
+        .it-row.row--paid     { background: var(--it-paid-bg);    border-color: var(--it-paid-border); }
+        .it-row.row--pending  { background: var(--it-pending-bg); border-color: var(--it-pending-border); }
+        .it-row.row--selected { background: var(--it-sel-bg);     border-color: var(--it-sel-border); }
+        .it-row.row--overdue  { background: var(--it-over-bg);    border-color: var(--it-over-border); }
 
-                    {/* Amount */}
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-semibold text-gray-900">
-                        ${installmentAmount.toLocaleString("es-AR")}
-                      </div>
-                    </td>
+        /* ── Checkbox ────────────────────────────────────── */
+        .it-checkbox {
+          width: 1.25rem;
+          height: 1.25rem;
+          border-radius: 0.375rem;
+          border: 2px solid var(--it-border);
+          background: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          transition: border-color 0.12s, background 0.12s;
+        }
+        .it-checkbox--checked {
+          background: var(--it-primary);
+          border-color: var(--it-primary);
+          color: white;
+        }
+        .it-checkbox--paid {
+          background: var(--it-paid-text);
+          border-color: var(--it-paid-text);
+          color: white;
+        }
+        .it-checkbox--pending {
+          background: var(--it-pending-text);
+          border-color: var(--it-pending-text);
+          color: white;
+        }
+        .it-checkbox__check {
+          font-size: 0.7rem;
+          font-weight: 700;
+          line-height: 1;
+        }
 
-                    {/* Status */}
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          isPaid
-                            ? "bg-green-100 text-green-800"
-                            : isPending
-                              ? "bg-yellow-100 text-yellow-800"
-                              : isSelected
-                                ? "bg-indigo-100 text-indigo-800"
-                                : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        {isPaid
-                          ? "Pagada"
-                          : isPending
-                            ? "En Revisión"
-                            : isSelected
-                              ? "Seleccionada"
-                              : "Pendiente"}
-                      </span>
-                    </td>
+        /* ── Number pill ─────────────────────────────────── */
+        .it-num {
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-size: 0.8125rem;
+          font-weight: 700;
+          color: var(--it-text2);
+          min-width: 1.5rem;
+          flex-shrink: 0;
+        }
 
-                    {/* Vencimiento / Fecha de Pago */}
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {isPaid ? (
-                        <div className="text-sm text-gray-500">
-                          Pagada: {paymentDate}
-                        </div>
-                      ) : (
-                        <div className="flex flex-col gap-1">
-                          <div className="text-sm text-gray-900">
-                            {formatDueDate(installmentNum)}
-                          </div>
-                          {isOverdue(installmentNum) && (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600">
-                              <svg
-                                className="w-3 h-3"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                              ¡Vencida!
-                            </span>
-                          )}
-                          {isDueSoon(installmentNum) &&
-                            !isOverdue(installmentNum) && (
-                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-orange-600">
-                                <svg
-                                  className="w-3 h-3"
-                                  fill="currentColor"
-                                  viewBox="0 0 20 20"
-                                >
-                                  <path
-                                    fillRule="evenodd"
-                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-                                    clipRule="evenodd"
-                                  />
-                                </svg>
-                                Vence pronto
-                              </span>
-                            )}
-                        </div>
-                      )}
-                    </td>
+        /* ── Info section ────────────────────────────────── */
+        .it-info { flex: 1; min-width: 0; }
+        .it-info__label {
+          font-weight: 600;
+          font-size: 0.875rem;
+          color: var(--it-text1);
+        }
+        .it-info__date {
+          font-size: 0.75rem;
+          color: var(--it-text3);
+          margin-top: 0.125rem;
+        }
 
-                    {/* Payment Date */}
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {paymentDate || "-"}
-                    </td>
-                  </tr>
-                );
-              },
-            )}
-          </tbody>
-        </table>
-      </div>
+        /* ── Right side ──────────────────────────────────── */
+        .it-right {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 0.25rem;
+          flex-shrink: 0;
+        }
+        .it-amount {
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-size: 0.9375rem;
+          font-weight: 700;
+          color: var(--it-text1);
+        }
 
-      {/* Mobile Card View */}
-      <div className="md:hidden space-y-3">
-        {Array.from({ length: totalInstallments }, (_, i) => i + 1).map(
-          (installmentNum) => {
-            const isPaid = paidInstallments.has(installmentNum);
-            const isPending = pendingInstallments.has(installmentNum);
-            const isSelected = selectedInstallments.includes(installmentNum);
-            const isDisabled = isPaid || isPending || disabled;
-            const paymentDate = getPaymentDate(installmentNum);
+        /* ── Badges ──────────────────────────────────────── */
+        .it-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.25rem;
+          padding: 0.2rem 0.5rem;
+          border-radius: 9999px;
+          font-size: 0.6875rem;
+          font-weight: 700;
+          letter-spacing: 0.02em;
+        }
+        .badge--paid     { background: var(--it-paid-bg);    color: var(--it-paid-text);    border: 1px solid var(--it-paid-border); }
+        .badge--pending  { background: var(--it-pending-bg); color: var(--it-pending-text); border: 1px solid var(--it-pending-border); }
+        .badge--selected { background: var(--it-sel-bg);     color: var(--it-sel-text);     border: 1px solid var(--it-sel-border); }
+        .badge--overdue  { background: var(--it-over-bg);    color: var(--it-over-text);    border: 1px solid var(--it-over-border); }
+        .badge--soon     { background: var(--it-soon-bg);    color: var(--it-soon-text);    border: 1px solid var(--it-soon-border); }
+        .badge--unpaid   { background: var(--it-surface);    color: var(--it-text3);        border: 1px solid var(--it-border); }
+
+        /* ── Legend ──────────────────────────────────────── */
+        .it-legend {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.625rem;
+          padding-top: 0.875rem;
+          margin-top: 0.25rem;
+          border-top: 1px solid var(--it-border);
+        }
+        .it-legend__item {
+          display: flex;
+          align-items: center;
+          gap: 0.375rem;
+          font-size: 0.75rem;
+          color: var(--it-text2);
+        }
+        .it-legend__dot {
+          width: 0.625rem;
+          height: 0.625rem;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+      `}</style>
+
+      <div className="it-root">
+        <div className="it-grid">
+          {installments.map((num) => {
+            const status = getStatus(num);
+            const cfg = STATUS_CONFIG[status];
+            const isInteractive =
+              !disabled && !paidSet.has(num) && !pendingSet.has(num);
+            const paymentDate = getPaymentDate(num);
+
+            const checkboxCls = paidSet.has(num)
+              ? "it-checkbox--paid"
+              : pendingSet.has(num)
+                ? "it-checkbox--pending"
+                : selectedInstallments.includes(num)
+                  ? "it-checkbox--checked"
+                  : "";
+
+            const showCheck =
+              paidSet.has(num) ||
+              pendingSet.has(num) ||
+              selectedInstallments.includes(num);
 
             return (
               <div
-                key={installmentNum}
-                onClick={() => handleInstallmentToggle(installmentNum)}
-                className={`border-2 rounded-lg p-4 transition-all ${
-                  isSelected
-                    ? "border-indigo-500 bg-indigo-50"
-                    : isPaid
-                      ? "border-green-300 bg-green-50"
-                      : isPending
-                        ? "border-yellow-300 bg-yellow-50"
-                        : "border-gray-200 bg-white"
-                } ${!isDisabled ? "cursor-pointer active:scale-95" : "cursor-not-allowed opacity-70"}`}
+                key={num}
+                className={`it-row ${cfg.rowCls} ${isInteractive ? "it-row--interactive" : "it-row--disabled"}`}
+                onClick={() => handleToggle(num)}
+                role="checkbox"
+                aria-checked={
+                  selectedInstallments.includes(num) || paidSet.has(num)
+                }
+                tabIndex={isInteractive ? 0 : -1}
+                onKeyDown={(e) => e.key === " " && handleToggle(num)}
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={isPaid || isSelected}
-                      disabled={isDisabled}
-                      onChange={() => handleInstallmentToggle(installmentNum)}
-                      onClick={(e) => e.stopPropagation()}
-                      className={`h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded ${
-                        isDisabled ? "cursor-not-allowed" : "cursor-pointer"
-                      }`}
-                    />
-                    <div>
-                      <div className="text-lg font-semibold text-gray-900">
-                        Cuota {installmentNum}
-                      </div>
-                      <div className="text-xl font-bold text-gray-900 mt-1">
-                        ${installmentAmount.toLocaleString("es-AR")}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Status Badge */}
-                  <span
-                    className={`px-3 py-1 text-xs font-semibold rounded-full flex items-center gap-1 ${
-                      isPaid
-                        ? "bg-green-100 text-green-800"
-                        : isPending
-                          ? "bg-yellow-100 text-yellow-800"
-                          : isSelected
-                            ? "bg-indigo-100 text-indigo-800"
-                            : "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {isPaid && (
-                      <svg
-                        className="w-4 h-4"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    )}
-                    {isPending && (
-                      <svg
-                        className="w-4 h-4"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    )}
-                    {isPaid
-                      ? "Pagada"
-                      : isPending
-                        ? "En Revisión"
-                        : isSelected
-                          ? "Seleccionada"
-                          : "Pendiente"}
-                  </span>
+                {/* Checkbox */}
+                <div className={`it-checkbox ${checkboxCls}`}>
+                  {showCheck && (
+                    <span className="it-checkbox__check">
+                      {paidSet.has(num) || selectedInstallments.includes(num)
+                        ? "✓"
+                        : "◷"}
+                    </span>
+                  )}
                 </div>
 
-                {/* Fechas y alertas */}
-                <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
-                  {isPaid ? (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                        />
-                      </svg>
-                      <span>Pagada el {paymentDate}</span>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">Vencimiento:</span>
-                        <span className="font-medium text-gray-900">
-                          {formatDueDate(installmentNum)}
-                        </span>
-                      </div>
+                {/* Number */}
+                <span className="it-num">#{num}</span>
 
-                      {isOverdue(installmentNum) && (
-                        <div className="flex items-center gap-1.5 text-sm font-semibold text-red-600 bg-red-50 px-3 py-2 rounded-lg">
-                          <svg
-                            className="w-4 h-4"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                          ¡Cuota vencida!
-                        </div>
-                      )}
+                {/* Info */}
+                <div className="it-info">
+                  <p className="it-info__label">Cuota {num}</p>
+                  <p className="it-info__date">
+                    {paymentDate
+                      ? `Pagada el ${paymentDate}`
+                      : `Vence ${formatDueDate(num)}`}
+                  </p>
+                </div>
 
-                      {isDueSoon(installmentNum) &&
-                        !isOverdue(installmentNum) && (
-                          <div className="flex items-center gap-1.5 text-sm font-semibold text-orange-600 bg-orange-50 px-3 py-2 rounded-lg">
-                            <svg
-                              className="w-4 h-4"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                            Vence pronto
-                          </div>
-                        )}
-                    </>
-                  )}
+                {/* Right */}
+                <div className="it-right">
+                  <span className="it-amount">
+                    {formatARS(installmentAmount)}
+                  </span>
+                  <span className={`it-badge ${cfg.badgeCls}`}>
+                    {cfg.badgeLabel}
+                  </span>
                 </div>
               </div>
             );
-          },
-        )}
-      </div>
+          })}
+        </div>
 
-      {/* Summary Footer */}
-      {selectedInstallments.length > 0 && (
-        <div className="bg-linear-to-r from-indigo-50 to-indigo-100 border-2 border-indigo-200 rounded-lg p-5 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <div className="text-sm font-medium text-indigo-900 mb-1">
-                Cuotas seleccionadas
-              </div>
-              <div className="text-xs text-indigo-700">
-                {selectedInstallments.join(", ")}
-              </div>
+        {/* Legend */}
+        <div className="it-legend" role="list" aria-label="Referencias">
+          {[
+            { color: "var(--it-paid-text)", label: "Pagada" },
+            { color: "var(--it-pending-text)", label: "En revisión" },
+            { color: "var(--it-sel-text)", label: "Seleccionada" },
+            { color: "var(--it-over-text)", label: "Vencida" },
+            { color: "var(--it-text3)", label: "Pendiente" },
+          ].map(({ color, label }) => (
+            <div key={label} className="it-legend__item" role="listitem">
+              <div className="it-legend__dot" style={{ background: color }} />
+              {label}
             </div>
-            <div className="flex flex-col items-start sm:items-end">
-              <div className="text-sm font-medium text-indigo-900 mb-1">
-                Total a pagar
-              </div>
-              <div className="text-3xl font-bold text-indigo-700">
-                ${calculateTotal().toLocaleString("es-AR")}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Legend */}
-      <div className="flex flex-wrap gap-4 text-xs text-gray-600 pt-2 border-t border-gray-200">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-green-100 border-2 border-green-300 rounded"></div>
-          <span>Pagada</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-yellow-100 border-2 border-yellow-300 rounded"></div>
-          <span>En Revisión</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-indigo-100 border-2 border-indigo-500 rounded"></div>
-          <span>Seleccionada</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-white border-2 border-gray-300 rounded"></div>
-          <span>Pendiente de pago</span>
+          ))}
         </div>
       </div>
-    </div>
+    </>
   );
 }

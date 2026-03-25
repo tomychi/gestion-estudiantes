@@ -18,182 +18,283 @@ interface Props {
   stats: Stats;
 }
 
+function formatARS(n: number) {
+  return n.toLocaleString("es-AR", {
+    style: "currency",
+    currency: "ARS",
+    maximumFractionDigits: 0,
+  });
+}
+
 export default function DashboardStats({ stats }: Props) {
-  const statCards = [
+  const collectionPct =
+    stats.totalExpected > 0
+      ? Math.round(
+          ((stats.totalExpected - stats.totalBalance) / stats.totalExpected) *
+            100,
+        )
+      : 0;
+
+  const cards = [
     {
-      name: "Estudiantes Totales",
-      value: stats.totalStudents,
+      label: "Estudiantes",
+      value: stats.totalStudents.toString(),
+      sub: `${stats.totalSchools} colegio${stats.totalSchools !== 1 ? "s" : ""}`,
+      accent: "#00618e",
+      accentBg: "rgba(0,97,142,0.08)",
       icon: (
         <svg
-          className="w-6 h-6"
+          width="20"
+          height="20"
           fill="none"
           stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
           viewBox="0 0 24 24"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-          />
+          <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
         </svg>
       ),
-      color: "from-blue-500 to-blue-600",
-      bgLight: "bg-blue-50",
-      textColor: "text-blue-600",
     },
     {
-      name: "Colegios",
-      value: stats.totalSchools,
+      label: "Ingresos confirmados",
+      value: formatARS(stats.totalRevenue),
+      sub: `${stats.approvedCount} pago${stats.approvedCount !== 1 ? "s" : ""} aprobado${stats.approvedCount !== 1 ? "s" : ""}`,
+      accent: "#0f7b55",
+      accentBg: "rgba(15,123,85,0.08)",
       icon: (
         <svg
-          className="w-6 h-6"
+          width="20"
+          height="20"
           fill="none"
           stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
           viewBox="0 0 24 24"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-          />
+          <polyline points="20 6 9 17 4 12" />
         </svg>
       ),
-      color: "from-green-500 to-green-600",
-      bgLight: "bg-green-50",
-      textColor: "text-green-600",
     },
     {
-      name: "Pagos Pendientes",
-      value: stats.pendingPayments,
-      subtitle: `$${stats.pendingAmount.toLocaleString("es-AR")}`,
+      label: "Pagos pendientes",
+      value: stats.pendingPayments.toString(),
+      sub: formatARS(stats.pendingAmount) + " en revisión",
+      accent: "#a16207",
+      accentBg: "rgba(161,98,7,0.08)",
       icon: (
         <svg
-          className="w-6 h-6"
+          width="20"
+          height="20"
           fill="none"
           stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
           viewBox="0 0 24 24"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
         </svg>
       ),
-      color: "from-yellow-500 to-yellow-600",
-      bgLight: "bg-yellow-50",
-      textColor: "text-yellow-600",
-      link: "/admin/payments?status=pending",
+      href: "/admin/payments?status=pending",
+      urgent: stats.pendingPayments > 0,
     },
     {
-      name: "Ingresos Confirmados",
-      value: `$${stats.totalRevenue.toLocaleString("es-AR")}`,
-      subtitle: `${stats.approvedCount} pagos aprobados`,
+      label: "Saldo por cobrar",
+      value: formatARS(stats.totalBalance),
+      sub: `de ${formatARS(stats.totalExpected)} esperado`,
+      accent: "#c2410c",
+      accentBg: "rgba(194,65,12,0.08)",
       icon: (
         <svg
-          className="w-6 h-6"
+          width="20"
+          height="20"
           fill="none"
           stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
           viewBox="0 0 24 24"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
+          <line x1="12" y1="1" x2="12" y2="23" />
+          <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
         </svg>
       ),
-      color: "from-emerald-500 to-emerald-600",
-      bgLight: "bg-emerald-50",
-      textColor: "text-emerald-600",
     },
     {
-      name: "Balance Total Pendiente",
-      value: `$${stats.totalBalance.toLocaleString("es-AR")}`,
-      subtitle: `de $${stats.totalExpected.toLocaleString("es-AR")} esperado`,
-      icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-      ),
-      color: "from-orange-500 to-orange-600",
-      bgLight: "bg-orange-50",
-      textColor: "text-orange-600",
-    },
-    {
-      name: "Tasa de Aprobación",
+      label: "Tasa de aprobación",
       value: `${stats.approvalRate}%`,
-      subtitle: `${stats.rejectedCount} rechazados`,
+      sub: `${stats.rejectedCount} rechazado${stats.rejectedCount !== 1 ? "s" : ""}`,
+      accent: "#7c3aed",
+      accentBg: "rgba(124,58,237,0.08)",
       icon: (
         <svg
-          className="w-6 h-6"
+          width="20"
+          height="20"
           fill="none"
           stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
           viewBox="0 0 24 24"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 00 2-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-          />
+          <line x1="18" y1="20" x2="18" y2="10" />
+          <line x1="12" y1="20" x2="12" y2="4" />
+          <line x1="6" y1="20" x2="6" y2="14" />
         </svg>
       ),
-      color: "from-purple-500 to-purple-600",
-      bgLight: "bg-purple-50",
-      textColor: "text-purple-600",
+    },
+    {
+      label: "Cobrado del total",
+      value: `${collectionPct}%`,
+      sub: "progreso de recaudación",
+      accent: "#0f7b55",
+      accentBg: "rgba(15,123,85,0.08)",
+      progress: collectionPct,
+      icon: (
+        <svg
+          width="20"
+          height="20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          viewBox="0 0 24 24"
+        >
+          <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+          <polyline points="22 4 12 14.01 9 11.01" />
+        </svg>
+      ),
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {statCards.map((stat) => {
-        const CardWrapper = stat.link ? "a" : "div";
-        const cardProps = stat.link
-          ? { href: stat.link, className: "cursor-pointer" }
-          : {};
+    <>
+      <style>{`
+        .ds-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 0.875rem;
+        }
+        @media (min-width: 768px) {
+          .ds-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (min-width: 1280px) {
+          .ds-grid { grid-template-columns: repeat(6, 1fr); }
+        }
+        .ds-card {
+          background: #ffffff;
+          border-radius: 1.25rem;
+          padding: 1.125rem 1.125rem 1rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.625rem;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+          text-decoration: none;
+          transition: box-shadow 0.15s, transform 0.15s;
+          position: relative;
+          overflow: hidden;
+        }
+        .ds-card:hover {
+          box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+          transform: translateY(-1px);
+        }
+        .ds-card--urgent::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 3px;
+          background: #a16207;
+          border-radius: 1.25rem 1.25rem 0 0;
+        }
+        .ds-card__icon {
+          width: 2.25rem;
+          height: 2.25rem;
+          border-radius: 0.75rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .ds-card__value {
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-size: clamp(1.125rem, 2vw, 1.5rem);
+          font-weight: 800;
+          color: #18181b;
+          letter-spacing: -0.02em;
+          line-height: 1;
+        }
+        .ds-card__label {
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #52525b;
+          margin-top: 0.25rem;
+        }
+        .ds-card__sub {
+          font-size: 0.6875rem;
+          color: #a1a1aa;
+          margin-top: 0.125rem;
+        }
+        .ds-card__track {
+          width: 100%;
+          height: 4px;
+          background: #e4e4e7;
+          border-radius: 9999px;
+          overflow: hidden;
+          margin-top: 0.25rem;
+        }
+        .ds-card__fill {
+          height: 100%;
+          border-radius: 9999px;
+          transition: width 0.8s cubic-bezier(0.34,1.2,0.64,1);
+        }
+      `}</style>
 
-        return (
-          <CardWrapper key={stat.name} {...cardProps}>
-            <div className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-all border border-gray-100">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-600">
-                    {stat.name}
-                  </p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">
-                    {stat.value}
-                  </p>
-                  {stat.subtitle && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {stat.subtitle}
-                    </p>
-                  )}
-                </div>
-                <div
-                  className={`bg-linear-to-br ${stat.color} p-3 rounded-lg shadow-sm`}
-                >
-                  <div className="text-white">{stat.icon}</div>
-                </div>
+      <div className="ds-grid">
+        {cards.map((card) => {
+          const Tag = card.href ? "a" : "div";
+          const props = card.href ? { href: card.href } : {};
+
+          return (
+            <Tag
+              key={card.label}
+              {...props}
+              className={`ds-card${card.urgent ? " ds-card--urgent" : ""}`}
+            >
+              <div
+                className="ds-card__icon"
+                style={{ background: card.accentBg, color: card.accent }}
+              >
+                {card.icon}
               </div>
-            </div>
-          </CardWrapper>
-        );
-      })}
-    </div>
+              <div>
+                <p className="ds-card__value">{card.value}</p>
+                <p className="ds-card__label">{card.label}</p>
+                <p className="ds-card__sub">{card.sub}</p>
+              </div>
+              {card.progress !== undefined && (
+                <div className="ds-card__track">
+                  <div
+                    className="ds-card__fill"
+                    style={{
+                      width: `${card.progress}%`,
+                      background: card.accent,
+                    }}
+                  />
+                </div>
+              )}
+            </Tag>
+          );
+        })}
+      </div>
+    </>
   );
 }

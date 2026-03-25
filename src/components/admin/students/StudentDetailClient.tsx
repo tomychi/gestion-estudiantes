@@ -18,6 +18,14 @@ interface Props {
   stats: PaymentStats;
 }
 
+function formatARS(n: number) {
+  return n.toLocaleString("es-AR", {
+    style: "currency",
+    currency: "ARS",
+    maximumFractionDigits: 0,
+  });
+}
+
 export default function StudentDetailClient({
   student,
   payments,
@@ -31,62 +39,38 @@ export default function StudentDetailClient({
   const [rejectingPayments, setRejectingPayments] = useState<Set<string>>(
     new Set(),
   );
-
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCashPaymentOpen, setIsCashPaymentOpen] = useState(false);
   const [isTransferPaymentOpen, setIsTransferPaymentOpen] = useState(false);
 
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      PENDING: "bg-yellow-100 text-yellow-800",
-      APPROVED: "bg-green-100 text-green-800",
-      REJECTED: "bg-red-100 text-red-800",
-    };
-
-    const labels = {
-      PENDING: "Pendiente",
-      APPROVED: "Aprobado",
-      REJECTED: "Rechazado",
-    };
-
-    return (
-      <span
-        className={`px-3 py-1 rounded-full text-xs font-medium ${styles[status as keyof typeof styles]}`}
-      >
-        {labels[status as keyof typeof labels]}
-      </span>
-    );
-  };
+  const progressPct = Math.min(
+    (student.paidAmount / student.totalAmount) * 100,
+    100,
+  );
+  const paidInstallments = installmentStatus.filter((i) => i.paid).length;
 
   const handleQuickApprove = async (paymentId: string) => {
     if (!confirm("¿Aprobar este pago?")) return;
-
     setApprovingPayments((prev) => new Set(prev).add(paymentId));
-
     try {
       const res = await fetch(`/api/admin/payments/${paymentId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "APPROVE" }),
       });
-
       const data = await res.json();
-
       if (!data.success) {
         alert(data.error || "Error al aprobar");
         return;
       }
-
       window.location.reload();
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Error de conexión";
-      alert(errorMessage);
+      alert(err instanceof Error ? err.message : "Error de conexión");
     } finally {
       setApprovingPayments((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(paymentId);
-        return newSet;
+        const s = new Set(prev);
+        s.delete(paymentId);
+        return s;
       });
     }
   };
@@ -94,9 +78,7 @@ export default function StudentDetailClient({
   const handleQuickReject = async (paymentId: string) => {
     const reason = prompt("Razón del rechazo:");
     if (!reason?.trim()) return;
-
     setRejectingPayments((prev) => new Set(prev).add(paymentId));
-
     try {
       const res = await fetch(`/api/admin/payments/${paymentId}`, {
         method: "PATCH",
@@ -106,647 +88,919 @@ export default function StudentDetailClient({
           rejectionReason: reason.trim(),
         }),
       });
-
       const data = await res.json();
-
       if (!data.success) {
         alert(data.error || "Error al rechazar");
         return;
       }
-
       window.location.reload();
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Error de conexión";
-      alert(errorMessage);
+      alert(err instanceof Error ? err.message : "Error de conexión");
     } finally {
       setRejectingPayments((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(paymentId);
-        return newSet;
+        const s = new Set(prev);
+        s.delete(paymentId);
+        return s;
       });
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header with Action Buttons */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">
-            {student.firstName} {student.lastName}
-          </h2>
-          <p className="text-gray-600 mt-1">
-            DNI: {student.dni} • {student.schoolDivision?.school.name} -{" "}
-            {student.schoolDivision?.division}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsCashPaymentOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
-              />
-            </svg>
-            💵 Pago en Efectivo
-          </button>
-          <button
-            onClick={() => setIsTransferPaymentOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-              />
-            </svg>
-            🏦 Transferencia
-          </button>
-          <button
-            onClick={() => setIsEditModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium transition-colors"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-              />
-            </svg>
-            Editar Datos
-          </button>
-        </div>
-      </div>
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-gray-600 font-medium">Saldo Pendiente</p>
-            <div className="p-2 bg-orange-100 rounded-lg">
-              <svg
-                className="w-5 h-5 text-orange-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-          </div>
-          <p className="text-3xl font-bold text-gray-900">
-            ${student.balance.toLocaleString("es-AR")}
-          </p>
-          <p className="text-xs text-gray-500 mt-1">
-            de ${student.totalAmount.toLocaleString("es-AR")}
-          </p>
-        </div>
+    <>
+      <style>{`
+        /* ── Tokens ──────────────────────────────────────── */
+        .sd-root {
+          --font-display: 'Plus Jakarta Sans', sans-serif;
+          --font-body:    'DM Sans', sans-serif;
+          --surface:      #ffffff;
+          --surface-2:    #f4f4f5;
+          --surface-3:    #e4e4e7;
+          --primary:      #00618e;
+          --primary-mid:  #0089c6;
+          --primary-tint: rgba(0,97,142,0.08);
+          --primary-tint-s: rgba(0,97,142,0.14);
+          --text-1:       #18181b;
+          --text-2:       #52525b;
+          --text-3:       #a1a1aa;
+          --success:      #0f7b55;
+          --success-bg:   rgba(15,123,85,0.08);
+          --success-border: rgba(15,123,85,0.18);
+          --warning:      #a16207;
+          --warning-bg:   rgba(161,98,7,0.08);
+          --warning-border: rgba(161,98,7,0.18);
+          --danger:       #b91c1c;
+          --danger-bg:    rgba(185,28,28,0.08);
+          --danger-border: rgba(185,28,28,0.18);
+          --r-sm:  0.5rem;
+          --r-md:  0.875rem;
+          --r-lg:  1.25rem;
+          --r-xl:  1.75rem;
+          --r-full: 9999px;
+          --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-gray-600 font-medium">Pagos Aprobados</p>
-            <div className="p-2 bg-green-100 rounded-lg">
-              <svg
-                className="w-5 h-5 text-green-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-          </div>
-          <p className="text-3xl font-bold text-gray-900">{stats.approved}</p>
-          <p className="text-xs text-gray-500 mt-1">
-            ${student.paidAmount.toLocaleString("es-AR")} pagado
-          </p>
-        </div>
+          font-family: var(--font-body);
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+          -webkit-font-smoothing: antialiased;
+        }
+        .sd-root *, .sd-root *::before, .sd-root *::after {
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0;
+        }
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-gray-600 font-medium">
-              Pagos Pendientes
+        /* ── Page header ─────────────────────────────────── */
+        .sd-page-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 1rem;
+          flex-wrap: wrap;
+        }
+        .sd-name {
+          font-family: var(--font-display);
+          font-size: clamp(1.25rem, 3vw, 1.75rem);
+          font-weight: 800;
+          color: var(--text-1);
+          letter-spacing: -0.02em;
+        }
+        .sd-meta {
+          font-size: 0.875rem;
+          color: var(--text-3);
+          margin-top: 0.2rem;
+        }
+        .sd-actions {
+          display: flex;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+        }
+        .sd-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.5625rem 1rem;
+          border-radius: var(--r-full);
+          font-family: var(--font-display);
+          font-size: 0.8125rem;
+          font-weight: 700;
+          border: none;
+          cursor: pointer;
+          transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+          white-space: nowrap;
+        }
+        .sd-btn:hover:not(:disabled) { transform: translateY(-1px); }
+        .sd-btn--cash {
+          background: var(--success-bg);
+          color: var(--success);
+          border: 1.5px solid var(--success-border);
+        }
+        .sd-btn--cash:hover { background: rgba(15,123,85,0.14); }
+        .sd-btn--transfer {
+          background: var(--primary-tint);
+          color: var(--primary);
+          border: 1.5px solid rgba(0,97,142,0.2);
+        }
+        .sd-btn--transfer:hover { background: var(--primary-tint-s); }
+        .sd-btn--edit {
+          background: linear-gradient(135deg, var(--primary) 0%, var(--primary-mid) 100%);
+          color: white;
+          box-shadow: 0 4px 12px rgba(0,97,142,0.25);
+        }
+        .sd-btn--edit:hover { box-shadow: 0 6px 16px rgba(0,97,142,0.35); }
+
+        /* ── Stat cards ──────────────────────────────────── */
+        .sd-stats {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 0.75rem;
+        }
+        @media (min-width: 768px) {
+          .sd-stats { grid-template-columns: repeat(4, 1fr); }
+        }
+        .sd-stat {
+          background: var(--surface);
+          border-radius: var(--r-lg);
+          box-shadow: var(--shadow-sm);
+          padding: 1rem 1.125rem;
+        }
+        .sd-stat__label {
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: var(--text-3);
+          margin-bottom: 0.5rem;
+        }
+        .sd-stat__value {
+          font-family: var(--font-display);
+          font-size: clamp(1.25rem, 3vw, 1.625rem);
+          font-weight: 800;
+          color: var(--text-1);
+          letter-spacing: -0.02em;
+          line-height: 1;
+        }
+        .sd-stat__sub {
+          font-size: 0.6875rem;
+          color: var(--text-3);
+          margin-top: 0.25rem;
+        }
+        .sd-stat__progress {
+          margin-top: 0.625rem;
+          height: 4px;
+          background: var(--surface-3);
+          border-radius: var(--r-full);
+          overflow: hidden;
+        }
+        .sd-stat__fill {
+          height: 100%;
+          border-radius: var(--r-full);
+          background: linear-gradient(90deg, var(--primary) 0%, var(--primary-mid) 100%);
+          transition: width 0.8s cubic-bezier(0.34,1.2,0.64,1);
+        }
+
+        /* ── Tabs ────────────────────────────────────────── */
+        .sd-tabs {
+          display: flex;
+          gap: 0;
+          border-bottom: 1px solid var(--surface-3);
+        }
+        .sd-tab {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.875rem 1.25rem 0.875rem 0;
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: var(--text-3);
+          background: none;
+          border: none;
+          border-bottom: 2px solid transparent;
+          cursor: pointer;
+          margin-bottom: -1px;
+          transition: color 0.12s, border-color 0.12s;
+        }
+        .sd-tab:hover { color: var(--text-1); }
+        .sd-tab--active { color: var(--primary); border-bottom-color: var(--primary); }
+        .sd-tab__badge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 1.25rem;
+          height: 1.25rem;
+          padding: 0 0.3rem;
+          border-radius: var(--r-full);
+          font-size: 0.6875rem;
+          font-weight: 800;
+          background: var(--warning-bg);
+          color: var(--warning);
+        }
+
+        /* ── Info tab layout ─────────────────────────────── */
+        .sd-info-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 1rem;
+        }
+        @media (min-width: 1024px) {
+          .sd-info-grid { grid-template-columns: 1fr 340px; }
+        }
+        .sd-info-left { display: flex; flex-direction: column; gap: 1rem; }
+        .sd-info-right { display: flex; flex-direction: column; gap: 1rem; }
+
+        /* ── Info cards ──────────────────────────────────── */
+        .sd-card {
+          background: var(--surface);
+          border-radius: var(--r-xl);
+          box-shadow: var(--shadow-sm);
+          overflow: hidden;
+        }
+        .sd-card__header {
+          padding: 1rem 1.25rem 0;
+          font-family: var(--font-display);
+          font-size: 0.8125rem;
+          font-weight: 700;
+          color: var(--text-3);
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
+        }
+        .sd-card__body { padding: 1rem 1.25rem 1.25rem; }
+        .sd-data-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.875rem;
+        }
+        .sd-data-item__label {
+          font-size: 0.75rem;
+          color: var(--text-3);
+          font-weight: 500;
+          margin-bottom: 0.2rem;
+        }
+        .sd-data-item__value {
+          font-size: 0.9375rem;
+          font-weight: 600;
+          color: var(--text-1);
+        }
+
+        /* ── Notes banner ────────────────────────────────── */
+        .sd-notes {
+          background: var(--warning-bg);
+          border: 1px solid var(--warning-border);
+          border-radius: var(--r-lg);
+          padding: 0.875rem 1rem;
+        }
+        .sd-notes__title {
+          font-size: 0.75rem;
+          font-weight: 700;
+          color: var(--warning);
+          margin-bottom: 0.375rem;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+        .sd-notes__text { font-size: 0.875rem; color: #713f12; line-height: 1.5; }
+
+        /* ── Installment list ────────────────────────────── */
+        .sd-inst-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+        .sd-inst-item {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          padding: 0.75rem;
+          border-radius: var(--r-md);
+          border: 1px solid transparent;
+        }
+        .sd-inst-item--paid    { background: var(--success-bg); border-color: var(--success-border); }
+        .sd-inst-item--partial { background: var(--warning-bg); border-color: var(--warning-border); }
+        .sd-inst-item--unpaid  { background: var(--surface-2); border-color: var(--surface-3); }
+        .sd-inst-bullet {
+          width: 2rem;
+          height: 2rem;
+          border-radius: var(--r-full);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-family: var(--font-display);
+          font-size: 0.75rem;
+          font-weight: 700;
+          flex-shrink: 0;
+        }
+        .sd-inst-bullet--paid    { background: var(--success); color: white; }
+        .sd-inst-bullet--partial { background: var(--warning); color: white; }
+        .sd-inst-bullet--unpaid  { background: var(--surface-3); color: var(--text-3); }
+        .sd-inst-info { flex: 1; min-width: 0; }
+        .sd-inst-name { font-size: 0.875rem; font-weight: 600; }
+        .sd-inst-name--paid    { color: var(--success); }
+        .sd-inst-name--partial { color: var(--warning); }
+        .sd-inst-name--unpaid  { color: var(--text-2); }
+        .sd-inst-partial { font-size: 0.6875rem; color: var(--warning); margin-top: 0.1rem; }
+        .sd-inst-date   { font-size: 0.6875rem; color: var(--success); margin-top: 0.1rem; }
+        .sd-inst-amount { font-family: var(--font-display); font-size: 0.875rem; font-weight: 700; }
+        .sd-inst-amount--paid    { color: var(--success); }
+        .sd-inst-amount--partial { color: var(--warning); }
+        .sd-inst-amount--unpaid  { color: var(--text-3); }
+
+        /* ── Payments table ──────────────────────────────── */
+        .sd-table-wrap {
+          background: var(--surface);
+          border-radius: var(--r-xl);
+          box-shadow: var(--shadow-sm);
+          overflow: hidden;
+        }
+        .sd-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .sd-table thead {
+          background: var(--surface-2);
+          border-bottom: 1px solid var(--surface-3);
+        }
+        .sd-table th {
+          padding: 0.75rem 1.25rem;
+          text-align: left;
+          font-size: 0.6875rem;
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: var(--text-3);
+          white-space: nowrap;
+        }
+        .sd-table th:last-child { text-align: right; }
+        .sd-table td {
+          padding: 0.875rem 1.25rem;
+          border-bottom: 1px solid var(--surface-2);
+          font-size: 0.875rem;
+          color: var(--text-1);
+          vertical-align: middle;
+        }
+        .sd-table td:last-child { text-align: right; }
+        .sd-table tbody tr:last-child td { border-bottom: none; }
+        .sd-table tbody tr:hover { background: var(--surface-2); }
+
+        /* ── Status badges ───────────────────────────────── */
+        .sd-badge {
+          display: inline-flex;
+          align-items: center;
+          padding: 0.2rem 0.625rem;
+          border-radius: var(--r-full);
+          font-size: 0.6875rem;
+          font-weight: 700;
+          letter-spacing: 0.02em;
+        }
+        .sd-badge--approved { background: var(--success-bg); color: var(--success); }
+        .sd-badge--pending  { background: var(--warning-bg); color: var(--warning); }
+        .sd-badge--rejected { background: var(--danger-bg);  color: var(--danger); }
+
+        /* ── Table action buttons ────────────────────────── */
+        .sd-act-btns { display: flex; align-items: center; justify-content: flex-end; gap: 0.375rem; }
+        .sd-act-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.3rem;
+          padding: 0.375rem 0.75rem;
+          border-radius: var(--r-full);
+          font-size: 0.75rem;
+          font-weight: 700;
+          border: none;
+          cursor: pointer;
+          transition: background 0.12s, opacity 0.12s;
+        }
+        .sd-act-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .sd-act-btn--approve {
+          background: var(--success-bg);
+          color: var(--success);
+          border: 1px solid var(--success-border);
+        }
+        .sd-act-btn--approve:hover:not(:disabled) { background: rgba(15,123,85,0.14); }
+        .sd-act-btn--reject {
+          background: var(--danger-bg);
+          color: var(--danger);
+          border: 1px solid var(--danger-border);
+        }
+        .sd-act-btn--reject:hover:not(:disabled) { background: rgba(185,28,28,0.14); }
+        .sd-spinner {
+          width: 0.75rem;
+          height: 0.75rem;
+          border: 1.5px solid currentColor;
+          border-top-color: transparent;
+          border-radius: 50%;
+          animation: sd-spin 0.7s linear infinite;
+          opacity: 0.6;
+        }
+        @keyframes sd-spin { to { transform: rotate(360deg); } }
+
+        /* ── Empty state ─────────────────────────────────── */
+        .sd-empty {
+          padding: 3rem 1.5rem;
+          text-align: center;
+          color: var(--text-3);
+        }
+        .sd-empty svg { margin: 0 auto 0.875rem; }
+        .sd-empty p { font-size: 0.9375rem; font-weight: 500; color: var(--text-2); }
+      `}</style>
+
+      <div className="sd-root">
+        {/* ── Page header ── */}
+        <div className="sd-page-header">
+          <div>
+            <h1 className="sd-name">
+              {student.firstName} {student.lastName}
+            </h1>
+            <p className="sd-meta">
+              DNI {student.dni} · {student.schoolDivision?.school.name} —{" "}
+              {student.schoolDivision?.division}
             </p>
-            <div className="p-2 bg-yellow-100 rounded-lg">
+          </div>
+          <div className="sd-actions">
+            <button
+              className="sd-btn sd-btn--cash"
+              onClick={() => setIsCashPaymentOpen(true)}
+            >
               <svg
-                className="w-5 h-5 text-yellow-600"
+                width="14"
+                height="14"
                 fill="none"
                 stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
                 viewBox="0 0 24 24"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
+                <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                <path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16" />
               </svg>
-            </div>
-          </div>
-          <p className="text-3xl font-bold text-gray-900">{stats.pending}</p>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-gray-600 font-medium">Cuotas Pagadas</p>
-            <div className="p-2 bg-indigo-100 rounded-lg">
+              Efectivo
+            </button>
+            <button
+              className="sd-btn sd-btn--transfer"
+              onClick={() => setIsTransferPaymentOpen(true)}
+            >
               <svg
-                className="w-5 h-5 text-indigo-600"
+                width="14"
+                height="14"
                 fill="none"
                 stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
                 viewBox="0 0 24 24"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                />
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                <line x1="1" y1="10" x2="23" y2="10" />
               </svg>
+              Transferencia
+            </button>
+            <button
+              className="sd-btn sd-btn--edit"
+              onClick={() => setIsEditModalOpen(true)}
+            >
+              <svg
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                viewBox="0 0 24 24"
+              >
+                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+              Editar
+            </button>
+          </div>
+        </div>
+
+        {/* ── Stats ── */}
+        <div className="sd-stats">
+          <div className="sd-stat">
+            <p className="sd-stat__label">Saldo pendiente</p>
+            <p className="sd-stat__value">{formatARS(student.balance)}</p>
+            <p className="sd-stat__sub">de {formatARS(student.totalAmount)}</p>
+            <div className="sd-stat__progress">
+              <div
+                className="sd-stat__fill"
+                style={{ width: `${progressPct}%` }}
+              />
             </div>
           </div>
-          <p className="text-3xl font-bold text-gray-900">
-            {installmentStatus.filter((i) => i.paid).length} /{" "}
-            {student.installments}
-          </p>
+          <div className="sd-stat">
+            <p className="sd-stat__label">Pagos aprobados</p>
+            <p className="sd-stat__value">{stats.approved}</p>
+            <p className="sd-stat__sub">
+              {formatARS(student.paidAmount)} cobrado
+            </p>
+          </div>
+          <div className="sd-stat">
+            <p className="sd-stat__label">Pagos pendientes</p>
+            <p className="sd-stat__value">{stats.pending}</p>
+            <p className="sd-stat__sub">
+              {stats.rejected} rechazado{stats.rejected !== 1 ? "s" : ""}
+            </p>
+          </div>
+          <div className="sd-stat">
+            <p className="sd-stat__label">Cuotas pagadas</p>
+            <p className="sd-stat__value">
+              {paidInstallments} / {student.installments}
+            </p>
+            <p className="sd-stat__sub">
+              {Math.round((paidInstallments / student.installments) * 100)}%
+              completado
+            </p>
+          </div>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
+        {/* ── Tabs ── */}
+        <div className="sd-tabs">
           <button
+            className={`sd-tab${selectedTab === "info" ? " sd-tab--active" : ""}`}
             onClick={() => setSelectedTab("info")}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-              selectedTab === "info"
-                ? "border-indigo-500 text-indigo-600"
-                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-            }`}
           >
-            Información Personal
+            Información personal
           </button>
           <button
+            className={`sd-tab${selectedTab === "payments" ? " sd-tab--active" : ""}`}
             onClick={() => setSelectedTab("payments")}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-              selectedTab === "payments"
-                ? "border-indigo-500 text-indigo-600"
-                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-            }`}
           >
-            Historial de Pagos
+            Historial de pagos
             {stats.pending > 0 && (
-              <span className="ml-2 px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded-full text-xs font-bold">
-                {stats.pending}
-              </span>
+              <span className="sd-tab__badge">{stats.pending}</span>
             )}
           </button>
-        </nav>
-      </div>
+        </div>
 
-      {/* Tab Content */}
-      {selectedTab === "info" ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Personal Info */}
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Datos Personales
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-600">Nombre</p>
-                  <p className="font-semibold text-gray-900">
-                    {student.firstName}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Apellido</p>
-                  <p className="font-semibold text-gray-900">
-                    {student.lastName}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">DNI</p>
-                  <p className="font-semibold text-gray-900">{student.dni}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Talle</p>
-                  <p className="font-semibold text-gray-900">
-                    {student.size || "No especificado"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Email</p>
-                  <p className="font-semibold text-gray-900">
-                    {student.email || "No especificado"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Teléfono</p>
-                  <p className="font-semibold text-gray-900">
-                    {student.phone || "No especificado"}
-                  </p>
+        {/* ── Info tab ── */}
+        {selectedTab === "info" && (
+          <div className="sd-info-grid">
+            <div className="sd-info-left">
+              {/* Personal */}
+              <div className="sd-card">
+                <p className="sd-card__header">Datos personales</p>
+                <div className="sd-card__body">
+                  <div className="sd-data-grid">
+                    {[
+                      { label: "Nombre", value: student.firstName },
+                      { label: "Apellido", value: student.lastName },
+                      { label: "DNI", value: student.dni },
+                      { label: "Talle", value: student.size || "—" },
+                      { label: "Email", value: student.email || "—" },
+                      { label: "Teléfono", value: student.phone || "—" },
+                    ].map(({ label, value }) => (
+                      <div key={label}>
+                        <p className="sd-data-item__label">{label}</p>
+                        <p className="sd-data-item__value">{value}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* School Info */}
-            {student.schoolDivision && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Información Académica
-                </h3>
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-sm text-gray-600">Colegio</p>
-                    <p className="font-semibold text-gray-900">
-                      {student.schoolDivision.school.name}
-                    </p>
-                    {student.schoolDivision.school.address && (
-                      <p className="text-sm text-gray-500">
-                        {student.schoolDivision.school.address}
+              {/* Academic */}
+              {student.schoolDivision && (
+                <div className="sd-card">
+                  <p className="sd-card__header">Información académica</p>
+                  <div className="sd-card__body">
+                    <div style={{ marginBottom: "0.875rem" }}>
+                      <p className="sd-data-item__label">Colegio</p>
+                      <p className="sd-data-item__value">
+                        {student.schoolDivision.school.name}
                       </p>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-600">División</p>
-                      <p className="font-semibold text-gray-900">
-                        {student.schoolDivision.division}
-                      </p>
+                      {student.schoolDivision.school.address && (
+                        <p
+                          style={{
+                            fontSize: "0.8125rem",
+                            color: "var(--text-3)",
+                            marginTop: "0.15rem",
+                          }}
+                        >
+                          {student.schoolDivision.school.address}
+                        </p>
+                      )}
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Año de Egreso</p>
-                      <p className="font-semibold text-gray-900">
-                        {student.schoolDivision.year}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Notes */}
-            {student.notes && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
-                <h3 className="text-sm font-semibold text-yellow-900 mb-2">
-                  Notas Adicionales
-                </h3>
-                <p className="text-sm text-yellow-800">{student.notes}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Product & Payment Info */}
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Producto
-              </h3>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-gray-600">Nombre</p>
-                  <p className="font-semibold text-gray-900">
-                    {student.product?.name || "Sin producto"}
-                  </p>
-                </div>
-                {student.product?.description && (
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-600">Descripción</p>
-                    <p className="text-sm text-gray-700">
-                      {student.product.description}
-                    </p>
-                  </div>
-                )}
-                <div>
-                  <p className="text-sm text-gray-600">Precio</p>
-                  <p className="font-semibold text-gray-900">
-                    $
-                    {(student.product?.currentPrice || 0).toLocaleString(
-                      "es-AR",
-                    )}{" "}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Payment Plan */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Estado de Cuotas
-              </h3>
-              <div className="space-y-2">
-                {installmentStatus.map((inst) => (
-                  <div
-                    key={inst.number}
-                    className={`flex items-center justify-between p-3 rounded-lg ${
-                      inst.paid
-                        ? "bg-green-50 border border-green-200"
-                        : inst.amountPaid > 0
-                          ? "bg-yellow-50 border border-yellow-200" // 🆕 Pago parcial
-                          : "bg-gray-50 border border-gray-200"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                          inst.paid
-                            ? "bg-green-500 text-white"
-                            : inst.amountPaid > 0
-                              ? "bg-yellow-500 text-white" // 🆕 Pago parcial
-                              : "bg-gray-300 text-gray-600"
-                        }`}
-                      >
-                        {inst.paid ? (
-                          <svg
-                            className="w-5 h-5"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        ) : (
-                          inst.number
-                        )}
+                    <div className="sd-data-grid">
+                      <div>
+                        <p className="sd-data-item__label">División</p>
+                        <p className="sd-data-item__value">
+                          {student.schoolDivision.division}
+                        </p>
                       </div>
                       <div>
-                        <p
-                          className={`text-sm font-medium ${
-                            inst.paid
-                              ? "text-green-900"
-                              : inst.amountPaid > 0
-                                ? "text-yellow-900"
-                                : "text-gray-900"
-                          }`}
-                        >
-                          Cuota {inst.number}
-                          {/* 🆕 Mostrar progreso si hay pago parcial */}
-                          {inst.amountPaid > 0 && !inst.paid && (
-                            <span className="ml-2 text-xs text-yellow-600">
-                              (${inst.amountPaid.toLocaleString("es-AR")} de $
-                              {inst.amount.toLocaleString("es-AR")})
-                            </span>
-                          )}
+                        <p className="sd-data-item__label">Año de egreso</p>
+                        <p className="sd-data-item__value">
+                          {student.schoolDivision.year}
                         </p>
-                        {inst.paid && inst.paymentDate && (
-                          <p className="text-xs text-green-600">
-                            {new Date(inst.paymentDate).toLocaleDateString(
-                              "es-AR",
-                            )}
-                          </p>
-                        )}
                       </div>
                     </div>
-                    <p
-                      className={`text-sm font-semibold ${
-                        inst.paid
-                          ? "text-green-700"
-                          : inst.amountPaid > 0
-                            ? "text-yellow-700"
-                            : "text-gray-700"
-                      }`}
-                    >
-                      ${inst.amount.toLocaleString("es-AR")}
-                    </p>
                   </div>
-                ))}
+                </div>
+              )}
+
+              {/* Notes */}
+              {student.notes && (
+                <div className="sd-notes">
+                  <p className="sd-notes__title">Notas</p>
+                  <p className="sd-notes__text">{student.notes}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="sd-info-right">
+              {/* Product */}
+              <div className="sd-card">
+                <p className="sd-card__header">Producto</p>
+                <div className="sd-card__body">
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "0.75rem",
+                    }}
+                  >
+                    <div>
+                      <p className="sd-data-item__label">Nombre</p>
+                      <p className="sd-data-item__value">
+                        {student.product?.name || "—"}
+                      </p>
+                    </div>
+                    {student.product?.description && (
+                      <div>
+                        <p className="sd-data-item__label">Descripción</p>
+                        <p
+                          style={{
+                            fontSize: "0.875rem",
+                            color: "var(--text-2)",
+                          }}
+                        >
+                          {student.product.description}
+                        </p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="sd-data-item__label">Precio actual</p>
+                      <p className="sd-data-item__value">
+                        {formatARS(student.product?.currentPrice ?? 0)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Installments */}
+              <div className="sd-card">
+                <p className="sd-card__header">Estado de cuotas</p>
+                <div className="sd-card__body">
+                  <div className="sd-inst-list">
+                    {installmentStatus.map((inst) => {
+                      const state = inst.paid
+                        ? "paid"
+                        : inst.amountPaid > 0
+                          ? "partial"
+                          : "unpaid";
+                      return (
+                        <div
+                          key={inst.number}
+                          className={`sd-inst-item sd-inst-item--${state}`}
+                        >
+                          <div
+                            className={`sd-inst-bullet sd-inst-bullet--${state}`}
+                          >
+                            {inst.paid ? (
+                              <svg
+                                width="12"
+                                height="12"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                viewBox="0 0 24 24"
+                              >
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            ) : (
+                              inst.number
+                            )}
+                          </div>
+                          <div className="sd-inst-info">
+                            <p
+                              className={`sd-inst-name sd-inst-name--${state}`}
+                            >
+                              Cuota {inst.number}
+                            </p>
+                            {state === "partial" && (
+                              <p className="sd-inst-partial">
+                                {formatARS(inst.amountPaid)} de{" "}
+                                {formatARS(inst.amount)}
+                              </p>
+                            )}
+                            {state === "paid" && inst.paymentDate && (
+                              <p className="sd-inst-date">
+                                {new Date(inst.paymentDate).toLocaleDateString(
+                                  "es-AR",
+                                )}
+                              </p>
+                            )}
+                          </div>
+                          <p
+                            className={`sd-inst-amount sd-inst-amount--${state}`}
+                          >
+                            {formatARS(inst.amount)}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      ) : (
-        /* Payments Tab */
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          {payments.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+        )}
+
+        {/* ── Payments tab ── */}
+        {selectedTab === "payments" &&
+          (payments.length > 0 ? (
+            <div className="sd-table-wrap">
+              <table className="sd-table">
+                <thead>
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Fecha
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Cuota
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Monto
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Estado
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Notas
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                      Acciones
-                    </th>
+                    <th>Fecha</th>
+                    <th>Cuota</th>
+                    <th>Monto</th>
+                    <th>Estado</th>
+                    <th>Notas</th>
+                    <th>Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {payments.map((payment) => (
-                    <tr key={payment.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(payment.submittedAt).toLocaleDateString(
-                          "es-AR",
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                        {payment.installmentNumber || "N/A"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
-                        ${payment.amount.toLocaleString("es-AR")}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(payment.status)}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">
-                        {payment.notes || "-"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        {payment.status === "PENDING" ? (
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => handleQuickApprove(payment.id)}
-                              disabled={approvingPayments.has(payment.id)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                              title="Aprobar pago"
-                            >
-                              {approvingPayments.has(payment.id) ? (
-                                <>
-                                  <svg
-                                    className="animate-spin h-3 w-3"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <circle
-                                      className="opacity-25"
-                                      cx="12"
-                                      cy="12"
-                                      r="10"
+                <tbody>
+                  {payments.map((payment) => {
+                    const statusKey = payment.status.toLowerCase() as
+                      | "approved"
+                      | "pending"
+                      | "rejected";
+                    return (
+                      <tr key={payment.id}>
+                        <td style={{ color: "var(--text-2)" }}>
+                          {new Date(payment.submittedAt).toLocaleDateString(
+                            "es-AR",
+                            {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            },
+                          )}
+                        </td>
+                        <td style={{ fontWeight: 700 }}>
+                          {payment.installmentNumber || "—"}
+                        </td>
+                        <td
+                          style={{
+                            fontFamily: "var(--font-display)",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {formatARS(payment.amount)}
+                        </td>
+                        <td>
+                          <span className={`sd-badge sd-badge--${statusKey}`}>
+                            {
+                              {
+                                approved: "Aprobado",
+                                pending: "Pendiente",
+                                rejected: "Rechazado",
+                              }[statusKey]
+                            }
+                          </span>
+                        </td>
+                        <td
+                          style={{ color: "var(--text-3)", maxWidth: "180px" }}
+                        >
+                          <span
+                            style={{
+                              display: "block",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {payment.notes || "—"}
+                          </span>
+                        </td>
+                        <td>
+                          {payment.status === "PENDING" ? (
+                            <div className="sd-act-btns">
+                              <button
+                                className="sd-act-btn sd-act-btn--approve"
+                                onClick={() => handleQuickApprove(payment.id)}
+                                disabled={approvingPayments.has(payment.id)}
+                              >
+                                {approvingPayments.has(payment.id) ? (
+                                  <>
+                                    <div className="sd-spinner" /> Aprobando
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg
+                                      width="11"
+                                      height="11"
+                                      fill="none"
                                       stroke="currentColor"
-                                      strokeWidth="4"
-                                    ></circle>
-                                    <path
-                                      className="opacity-75"
-                                      fill="currentColor"
-                                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                    ></path>
-                                  </svg>
-                                  <span>Aprobando...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <svg
-                                    className="w-3 h-3"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
+                                      strokeWidth="2.5"
                                       strokeLinecap="round"
                                       strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M5 13l4 4L19 7"
-                                    />
-                                  </svg>
-                                  <span>Aprobar</span>
-                                </>
-                              )}
-                            </button>
-                            <button
-                              onClick={() => handleQuickReject(payment.id)}
-                              disabled={rejectingPayments.has(payment.id)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                              title="Rechazar pago"
-                            >
-                              {rejectingPayments.has(payment.id) ? (
-                                <>
-                                  <svg
-                                    className="animate-spin h-3 w-3"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <circle
-                                      className="opacity-25"
-                                      cx="12"
-                                      cy="12"
-                                      r="10"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <polyline points="20 6 9 17 4 12" />
+                                    </svg>{" "}
+                                    Aprobar
+                                  </>
+                                )}
+                              </button>
+                              <button
+                                className="sd-act-btn sd-act-btn--reject"
+                                onClick={() => handleQuickReject(payment.id)}
+                                disabled={rejectingPayments.has(payment.id)}
+                              >
+                                {rejectingPayments.has(payment.id) ? (
+                                  <>
+                                    <div className="sd-spinner" /> Rechazando
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg
+                                      width="11"
+                                      height="11"
+                                      fill="none"
                                       stroke="currentColor"
-                                      strokeWidth="4"
-                                    ></circle>
-                                    <path
-                                      className="opacity-75"
-                                      fill="currentColor"
-                                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                    ></path>
-                                  </svg>
-                                  <span>Rechazando...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <svg
-                                    className="w-3 h-3"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
+                                      strokeWidth="2.5"
                                       strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M6 18L18 6M6 6l12 12"
-                                    />
-                                  </svg>
-                                  <span>Rechazar</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-gray-400 text-xs">-</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <line x1="18" y1="6" x2="6" y2="18" />
+                                      <line x1="6" y1="6" x2="18" y2="18" />
+                                    </svg>{" "}
+                                    Rechazar
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          ) : (
+                            <span
+                              style={{
+                                color: "var(--text-3)",
+                                fontSize: "0.75rem",
+                              }}
+                            >
+                              —
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           ) : (
-            <div className="p-12 text-center">
-              <svg
-                className="w-16 h-16 text-gray-400 mx-auto mb-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-              <p className="text-gray-600 font-medium">
-                No hay pagos registrados
-              </p>
+            <div className="sd-table-wrap">
+              <div className="sd-empty">
+                <svg
+                  width="40"
+                  height="40"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+                <p>No hay pagos registrados</p>
+              </div>
             </div>
-          )}
-        </div>
-      )}
-      {/* Edit Modal */}
-      <EditStudentModal
-        student={student}
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-      />
-      {/* Cash Payment Modal */}
-      <CashPaymentModalSingle
-        student={student}
-        isOpen={isCashPaymentOpen}
-        onClose={() => setIsCashPaymentOpen(false)}
-      />
-      <TransferPaymentModalSingle
-        student={student}
-        isOpen={isTransferPaymentOpen}
-        onClose={() => setIsTransferPaymentOpen(false)}
-      />
-    </div>
+          ))}
+
+        {/* Modals */}
+        <EditStudentModal
+          student={student}
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+        />
+        <CashPaymentModalSingle
+          student={student}
+          isOpen={isCashPaymentOpen}
+          onClose={() => setIsCashPaymentOpen(false)}
+        />
+        <TransferPaymentModalSingle
+          student={student}
+          isOpen={isTransferPaymentOpen}
+          onClose={() => setIsTransferPaymentOpen(false)}
+        />
+      </div>
+    </>
   );
 }

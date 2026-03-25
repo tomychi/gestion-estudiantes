@@ -8,180 +8,350 @@ interface Settings {
   total_recalculation_percentage: number;
 }
 
+const DEFAULTS: Settings = {
+  payment_due_day: 15,
+  late_fee_percentage: 10,
+  total_recalculation_percentage: 0,
+};
+
 export default function SettingsForm() {
-  const [settings, setSettings] = useState<Settings>({
-    payment_due_day: 15,
-    late_fee_percentage: 10,
-    total_recalculation_percentage: 0,
-  });
+  const [settings, setSettings] = useState<Settings>(DEFAULTS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notification, setNotification] = useState<{
-    show: boolean;
     type: "success" | "error";
     message: string;
-  }>({ show: false, type: "success", message: "" });
+  } | null>(null);
 
   useEffect(() => {
     const fetchSettings = async () => {
       try {
         const res = await fetch("/api/admin/settings");
         const data = await res.json();
-
         if (data.success) {
+          // Defensive: handle data.settings, data.data, or data directly
+          const s = data.settings ?? data.data ?? data;
           setSettings({
-            payment_due_day: data.settings.payment_due_day || 15,
-            late_fee_percentage: data.settings.late_fee_percentage || 10,
+            payment_due_day: s?.payment_due_day ?? DEFAULTS.payment_due_day,
+            late_fee_percentage:
+              s?.late_fee_percentage ?? DEFAULTS.late_fee_percentage,
             total_recalculation_percentage:
-              data.settings.total_recalculation_percentage || 0,
+              s?.total_recalculation_percentage ??
+              DEFAULTS.total_recalculation_percentage,
           });
         }
-      } catch (error) {
-        console.error("Error fetching settings:", error);
+      } catch (err) {
+        console.error("Error fetching settings:", err);
       } finally {
         setLoading(false);
       }
     };
-
     fetchSettings();
   }, []);
+
+  const set = (patch: Partial<Settings>) =>
+    setSettings((prev) => ({ ...prev, ...patch }));
+
+  const showNotification = (type: "success" | "error", message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 4000);
+  };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const response = await fetch("/api/admin/settings", {
+      const res = await fetch("/api/admin/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings),
       });
-
-      const data = await response.json();
-
+      const data = await res.json();
       if (data.success) {
         showNotification("success", "Configuración guardada exitosamente");
       } else {
         showNotification("error", data.error || "Error al guardar");
       }
-    } catch (error) {
-      console.error("Error saving settings:", error);
+    } catch (err) {
+      console.error("Error saving settings:", err);
       showNotification("error", "Error al guardar la configuración");
     } finally {
       setSaving(false);
     }
   };
 
-  const showNotification = (type: "success" | "error", message: string) => {
-    setNotification({ show: true, type, message });
-    setTimeout(() => {
-      setNotification({ show: false, type: "success", message: "" });
-    }, 3000);
-  };
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "400px",
+        }}
+      >
+        <style>{`
+          .sf-spinner {
+            width: 2.5rem; height: 2.5rem;
+            border: 3px solid rgba(0,97,142,0.15);
+            border-top-color: #00618e;
+            border-radius: 50%;
+            animation: sf-spin 0.7s linear infinite;
+          }
+          @keyframes sf-spin { to { transform: rotate(360deg); } }
+        `}</style>
+        <div className="sf-spinner" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">
-          Configuración del Sistema
-        </h1>
-        <p className="text-gray-600 mt-1">
-          Gestiona los parámetros de cobro y vencimientos de cuotas
-        </p>
-      </div>
+    <>
+      <style>{`
+        .sf-root {
+          --font-display: 'Plus Jakarta Sans', sans-serif;
+          --font-body:    'DM Sans', sans-serif;
+          --surface:      #ffffff;
+          --surface-2:    #f4f4f5;
+          --surface-3:    #e4e4e7;
+          --primary:      #00618e;
+          --primary-mid:  #0089c6;
+          --primary-tint: rgba(0,97,142,0.08);
+          --primary-tint-s: rgba(0,97,142,0.14);
+          --primary-focus: rgba(0,97,142,0.15);
+          --text-1:       #18181b;
+          --text-2:       #52525b;
+          --text-3:       #a1a1aa;
+          --success:      #0f7b55;
+          --success-bg:   rgba(15,123,85,0.08);
+          --success-border: rgba(15,123,85,0.2);
+          --danger:       #b91c1c;
+          --danger-bg:    rgba(185,28,28,0.08);
+          --danger-border: rgba(185,28,28,0.2);
+          --r-md:  0.875rem;
+          --r-lg:  1.25rem;
+          --r-xl:  1.75rem;
+          --r-full: 9999px;
+          --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
 
-      {/* Notification */}
-      {notification.show && (
-        <div
-          className={`p-4 rounded-lg flex items-center gap-3 ${
-            notification.type === "success"
-              ? "bg-green-50 text-green-800 border border-green-200"
-              : "bg-red-50 text-red-800 border border-red-200"
-          }`}
-        >
-          {notification.type === "success" ? (
-            <svg
-              className="w-5 h-5 shrink-0"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                clipRule="evenodd"
-              />
-            </svg>
-          ) : (
-            <svg
-              className="w-5 h-5 shrink-0"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                clipRule="evenodd"
-              />
-            </svg>
-          )}
-          <span className="font-medium">{notification.message}</span>
+          font-family: var(--font-body);
+          display: flex; flex-direction: column; gap: 1.25rem;
+          max-width: 640px;
+          -webkit-font-smoothing: antialiased;
+        }
+        .sf-root *, .sf-root *::before, .sf-root *::after {
+          box-sizing: border-box; margin: 0; padding: 0;
+        }
+
+        /* Page header */
+        .sf-title {
+          font-family: var(--font-display);
+          font-size: clamp(1.375rem, 3vw, 1.875rem);
+          font-weight: 800; color: var(--text-1); letter-spacing: -0.02em;
+        }
+        .sf-sub { font-size: 0.875rem; color: var(--text-3); margin-top: 0.2rem; }
+
+        /* Notification */
+        .sf-notification {
+          border-radius: var(--r-lg); padding: 0.875rem 1rem;
+          display: flex; align-items: center; gap: 0.625rem;
+          font-size: 0.875rem; font-weight: 600;
+          animation: sf-fadein 0.25s ease;
+        }
+        @keyframes sf-fadein { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+        .sf-notification--success { background: var(--success-bg); border: 1px solid var(--success-border); color: var(--success); }
+        .sf-notification--error   { background: var(--danger-bg);  border: 1px solid var(--danger-border);  color: var(--danger); }
+
+        /* Card */
+        .sf-card {
+          background: var(--surface);
+          border-radius: var(--r-xl);
+          box-shadow: var(--shadow-sm);
+          overflow: hidden;
+        }
+
+        /* Setting rows */
+        .sf-row {
+          padding: 1.375rem 1.5rem;
+          border-bottom: 1px solid var(--surface-2);
+          display: flex; flex-direction: column; gap: 0.875rem;
+        }
+        .sf-row:last-child { border-bottom: none; }
+        .sf-row__header {}
+        .sf-row__label {
+          font-family: var(--font-display);
+          font-size: 0.9375rem; font-weight: 700; color: var(--text-1);
+          margin-bottom: 0.25rem;
+        }
+        .sf-row__desc { font-size: 0.8125rem; color: var(--text-3); line-height: 1.4; }
+        .sf-row__control {
+          display: flex; align-items: center; gap: 0.875rem; flex-wrap: wrap;
+        }
+        .sf-input-wrap { position: relative; flex-shrink: 0; }
+        .sf-input {
+          padding: 0.6875rem 2.5rem 0.6875rem 0.875rem;
+          border-radius: var(--r-md);
+          border: 1.5px solid var(--surface-3);
+          background: var(--surface-2);
+          font-family: var(--font-display);
+          font-size: 1.0625rem; font-weight: 700; color: var(--text-1);
+          outline: none; width: 7rem;
+          transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+          -webkit-appearance: none; text-align: center;
+        }
+        .sf-input:focus { border-color: var(--primary); background: white; box-shadow: 0 0 0 3px var(--primary-focus); }
+        .sf-input-suffix {
+          position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%);
+          font-size: 0.8125rem; font-weight: 600; color: var(--text-3); pointer-events: none;
+        }
+        .sf-preview {
+          font-size: 0.8125rem; font-weight: 600; color: var(--primary);
+          background: var(--primary-tint);
+          border-radius: var(--r-full);
+          padding: 0.35rem 0.75rem;
+          white-space: nowrap;
+        }
+        .sf-hint {
+          font-size: 0.75rem; color: var(--text-3); line-height: 1.4;
+        }
+
+        /* Footer */
+        .sf-footer {
+          padding: 1rem 1.5rem;
+          background: var(--surface-2);
+          border-top: 1px solid var(--surface-3);
+          display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+          flex-wrap: wrap;
+        }
+        .sf-footer__note { font-size: 0.8125rem; color: var(--text-3); }
+        .sf-save-btn {
+          display: inline-flex; align-items: center; gap: 0.5rem;
+          padding: 0.6875rem 1.375rem;
+          border-radius: var(--r-full);
+          font-family: var(--font-display); font-size: 0.9375rem; font-weight: 700;
+          background: linear-gradient(135deg, var(--primary) 0%, var(--primary-mid) 100%);
+          color: white; border: none; cursor: pointer;
+          box-shadow: 0 4px 12px rgba(0,97,142,0.3);
+          transition: transform 0.12s, box-shadow 0.12s, opacity 0.12s;
+        }
+        .sf-save-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0,97,142,0.38); }
+        .sf-save-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .sf-spinner {
+          width: 1rem; height: 1rem;
+          border: 2px solid rgba(255,255,255,0.3); border-top-color: white;
+          border-radius: 50%; animation: sf-spin 0.7s linear infinite;
+        }
+        @keyframes sf-spin { to { transform: rotate(360deg); } }
+
+        /* Info banner */
+        .sf-info {
+          background: var(--primary-tint);
+          border: 1px solid rgba(0,97,142,0.14);
+          border-radius: var(--r-lg);
+          padding: 1rem 1.125rem;
+          display: flex; gap: 0.75rem; align-items: flex-start;
+        }
+        .sf-info__icon {
+          width: 1.75rem; height: 1.75rem; border-radius: var(--r-md);
+          background: var(--primary-tint-s);
+          display: flex; align-items: center; justify-content: center;
+          color: var(--primary); flex-shrink: 0;
+        }
+        .sf-info__title { font-size: 0.8125rem; font-weight: 700; color: var(--primary); margin-bottom: 0.375rem; }
+        .sf-info__list {
+          list-style: none; display: flex; flex-direction: column; gap: 0.3rem;
+        }
+        .sf-info__list li {
+          font-size: 0.8125rem; color: #004e73; line-height: 1.4;
+          display: flex; align-items: baseline; gap: 0.5rem;
+        }
+        .sf-info__list li::before { content: '·'; font-weight: 700; color: var(--primary); flex-shrink: 0; }
+      `}</style>
+
+      <div className="sf-root">
+        {/* Header */}
+        <div>
+          <h1 className="sf-title">Configuración</h1>
+          <p className="sf-sub">Parámetros de cobro y vencimientos de cuotas</p>
         </div>
-      )}
 
-      {/* Settings Form */}
-      <div className="bg-white shadow-sm rounded-lg border border-gray-200">
-        <div className="p-6 space-y-6">
-          {/* Payment Due Day */}
-          <div>
-            <label
-              htmlFor="payment_due_day"
-              className="block text-sm font-medium text-gray-900 mb-2"
-            >
-              Día de vencimiento de cuotas
-            </label>
-            <div className="flex items-center gap-4">
-              <input
-                type="number"
-                id="payment_due_day"
-                min="1"
-                max="31"
-                value={settings.payment_due_day}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    payment_due_day: parseInt(e.target.value) || 1,
-                  })
-                }
-                className="w-full px-4 py-2 pr-10 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              />
-              <span className="text-sm text-gray-600">
-                Las cuotas vencen el día {settings.payment_due_day} de cada mes
+        {/* Notification */}
+        {notification && (
+          <div
+            className={`sf-notification sf-notification--${notification.type}`}
+          >
+            {notification.type === "success" ? (
+              <svg
+                width="16"
+                height="16"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            ) : (
+              <svg
+                width="16"
+                height="16"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            )}
+            {notification.message}
+          </div>
+        )}
+
+        {/* Form card */}
+        <div className="sf-card">
+          {/* Día de vencimiento */}
+          <div className="sf-row">
+            <div className="sf-row__header">
+              <p className="sf-row__label">Día de vencimiento</p>
+              <p className="sf-row__desc">
+                Las cuotas vencen este día de cada mes
+              </p>
+            </div>
+            <div className="sf-row__control">
+              <div className="sf-input-wrap">
+                <input
+                  type="number"
+                  id="payment_due_day"
+                  min="1"
+                  max="31"
+                  value={settings.payment_due_day}
+                  onChange={(e) =>
+                    set({ payment_due_day: parseInt(e.target.value) || 1 })
+                  }
+                  className="sf-input"
+                />
+              </div>
+              <span className="sf-preview">
+                Vence el día {settings.payment_due_day}
               </span>
             </div>
-            <p className="mt-2 text-xs text-gray-500">
-              💡 Valor típico: 15 (las cuotas vencen el día 15 de cada mes)
-            </p>
+            <p className="sf-hint">Valor típico: 15</p>
           </div>
 
-          <hr className="border-gray-200" />
-
-          {/* Late Fee Percentage */}
-          <div>
-            <label
-              htmlFor="late_fee_percentage"
-              className="block text-sm font-medium text-gray-900 mb-2"
-            >
-              Porcentaje de recargo por cuota vencida
-            </label>
-            <div className="flex items-center gap-4">
-              <div className="relative w-32">
+          {/* Recargo por cuota vencida */}
+          <div className="sf-row">
+            <div className="sf-row__header">
+              <p className="sf-row__label">Recargo por cuota vencida</p>
+              <p className="sf-row__desc">
+                Porcentaje que se suma al monto de cada cuota no pagada después
+                del vencimiento
+              </p>
+            </div>
+            <div className="sf-row__control">
+              <div className="sf-input-wrap">
                 <input
                   type="number"
                   id="late_fee_percentage"
@@ -190,39 +360,34 @@ export default function SettingsForm() {
                   step="0.1"
                   value={settings.late_fee_percentage}
                   onChange={(e) =>
-                    setSettings({
-                      ...settings,
+                    set({
                       late_fee_percentage: parseFloat(e.target.value) || 0,
                     })
                   }
-                  className="w-full px-4 py-2 pr-10 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="sf-input"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
-                  %
-                </span>
+                <span className="sf-input-suffix">%</span>
               </div>
-              <span className="text-sm text-gray-600">
-                Se aplicará un {settings.late_fee_percentage}% de recargo por
-                cada cuota no pagada después del vencimiento
+              <span className="sf-preview">
+                +{settings.late_fee_percentage}% por cuota
               </span>
             </div>
-            <p className="mt-2 text-xs text-gray-500">
-              💡 Valor típico: 10% (se agrega 10% al monto de la cuota vencida)
-            </p>
+            <p className="sf-hint">Valor típico: 10%</p>
           </div>
 
-          <hr className="border-gray-200" />
-
-          {/* Total Recalculation Percentage */}
-          <div>
-            <label
-              htmlFor="total_recalculation_percentage"
-              className="block text-sm font-medium text-gray-900 mb-2"
-            >
-              Porcentaje de recargo sobre el total (2+ cuotas vencidas)
-            </label>
-            <div className="flex items-center gap-4">
-              <div className="relative w-32">
+          {/* Recargo total */}
+          <div className="sf-row">
+            <div className="sf-row__header">
+              <p className="sf-row__label">
+                Recargo total (2+ cuotas vencidas)
+              </p>
+              <p className="sf-row__desc">
+                Porcentaje adicional que se aplica sobre el monto total cuando
+                el estudiante acumula 2 o más cuotas vencidas
+              </p>
+            </div>
+            <div className="sf-row__control">
+              <div className="sf-input-wrap">
                 <input
                   type="number"
                   id="total_recalculation_percentage"
@@ -231,123 +396,91 @@ export default function SettingsForm() {
                   step="0.1"
                   value={settings.total_recalculation_percentage}
                   onChange={(e) =>
-                    setSettings({
-                      ...settings,
+                    set({
                       total_recalculation_percentage:
                         parseFloat(e.target.value) || 0,
                     })
                   }
-                  className="w-full px-4 py-2 pr-10 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="sf-input"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
-                  %
-                </span>
+                <span className="sf-input-suffix">%</span>
               </div>
-              <span className="text-sm text-gray-600">
-                Cuando un estudiante tiene 2 o más cuotas vencidas, se aplicará
-                un {settings.total_recalculation_percentage}% adicional sobre el
-                monto total
-              </span>
+              {settings.total_recalculation_percentage > 0 ? (
+                <span className="sf-preview">
+                  +{settings.total_recalculation_percentage}% sobre el total
+                </span>
+              ) : (
+                <span className="sf-hint">Sin recargo adicional</span>
+              )}
             </div>
-            <p className="mt-2 text-xs text-gray-500">
-              💡 Opcional: Deja en 0% si no deseas aplicar este recargo
-              adicional
-            </p>
+            <p className="sf-hint">Dejá en 0% para no aplicar este recargo</p>
           </div>
-        </div>
 
-        {/* Actions */}
-        <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200 rounded-b-lg">
-          <div className="text-sm text-gray-600">
-            Los cambios se aplicarán en el próximo ciclo de procesamiento (1 AM
-            diario)
-          </div>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors flex items-center gap-2"
-          >
-            {saving ? (
-              <>
-                <svg
-                  className="animate-spin h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
+          {/* Footer */}
+          <div className="sf-footer">
+            <p className="sf-footer__note">
+              Los cambios aplican en el próximo ciclo (1 AM diario)
+            </p>
+            <button
+              className="sf-save-btn"
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? (
+                <>
+                  <div className="sf-spinner" /> Guardando...
+                </>
+              ) : (
+                <>
+                  <svg
+                    width="14"
+                    height="14"
+                    fill="none"
                     stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-                Guardando...
-              </>
-            ) : (
-              <>
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
+                    strokeWidth="2.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                Guardar Configuración
-              </>
-            )}
-          </button>
+                    viewBox="0 0 24 24"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  Guardar configuración
+                </>
+              )}
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Info Card */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex gap-3">
-          <svg
-            className="w-5 h-5 text-blue-600 shrink-0 mt-0.5"
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path
-              fillRule="evenodd"
-              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-              clipRule="evenodd"
-            />
-          </svg>
-          <div className="text-sm text-blue-800">
-            <p className="font-semibold mb-1">
+        {/* Info banner */}
+        <div className="sf-info">
+          <div className="sf-info__icon">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fillRule="evenodd"
+                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </div>
+          <div>
+            <p className="sf-info__title">
               ¿Cómo funciona el sistema de recargos?
             </p>
-            <ul className="space-y-1 list-disc list-inside text-blue-700">
-              <li>Cada día a la 1 AM, el sistema verifica cuotas vencidas</li>
+            <ul className="sf-info__list">
+              <li>Cada día a la 1 AM el sistema verifica cuotas vencidas</li>
               <li>
-                Si una cuota no fue pagada antes del día de vencimiento, se
-                aplica el recargo configurado
+                Si una cuota no fue pagada antes del vencimiento, se aplica el
+                recargo configurado
               </li>
               <li>
-                Si un estudiante acumula 2 o más cuotas vencidas, se aplica un
-                recargo adicional sobre el total
+                Con 2 o más cuotas vencidas, se aplica un recargo adicional
+                sobre el total
               </li>
-              <li>
-                Los estudiantes verán el monto actualizado reflejado en su
-                balance
-              </li>
+              <li>Los estudiantes ven el monto actualizado en su balance</li>
             </ul>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

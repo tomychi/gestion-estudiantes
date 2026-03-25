@@ -13,16 +13,21 @@ const studentSchema = z.object({
   size: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().email().optional().or(z.literal("")),
+  // Per-student overrides (optional — fallback to global)
+  productId: z.string().uuid().optional(),
+  totalAmount: z.number().positive().optional(),
+  installments: z.number().int().positive().optional(),
 });
 
 const importSchema = z.object({
   schoolId: z.string().uuid("Invalid school ID"),
   division: z.string().min(1, "Division is required"),
   year: z.number().int().positive("Year must be a positive integer"),
+  // Global defaults
   productId: z.string().uuid("Invalid product ID"),
-  students: z.array(studentSchema).min(1, "At least one student is required"),
   totalAmount: z.number().positive("Total amount must be positive"),
   installments: z.number().int().positive("Installments must be positive"),
+  students: z.array(studentSchema).min(1, "At least one student is required"),
   adminId: z.string(),
 });
 
@@ -62,22 +67,33 @@ export async function POST(request: Request) {
       );
     }
 
-    // 5. Verify product exists
-    const { data: product, error: productError } = await supabase
+    // 5. Collect all unique productIds to validate in one query  ← REEMPLAZA el viejo paso 5
+    const studentProductIds = validatedData.students
+      .map((s) => s.productId)
+      .filter((id): id is string => !!id);
+
+    const allProductIds = [
+      ...new Set([validatedData.productId, ...studentProductIds]),
+    ];
+
+    const { data: products, error: productsError } = await supabase
       .from("Product")
       .select("id, name, currentPrice")
-      .eq("id", validatedData.productId)
-      .single();
+      .in("id", allProductIds);
 
-    if (productError || !product) {
+    if (
+      productsError ||
+      !products ||
+      products.length !== allProductIds.length
+    ) {
       return NextResponse.json(
-        {
-          success: false,
-          error: `Producto no encontrado`,
-        },
+        { success: false, error: "Uno o más productos no fueron encontrados" },
         { status: 400 },
       );
     }
+
+    const productsMap = new Map(products.map((p) => [p.id, p]));
+    const globalProduct = productsMap.get(validatedData.productId)!;
 
     // 6. Find or create SchoolDivision
     let { data: division } = await supabase
@@ -138,26 +154,30 @@ export async function POST(request: Request) {
     }
 
     // 8. Prepare students data
-    const totalAmount = validatedData.totalAmount;
-    const balance = totalAmount;
 
-    const studentsToCreate = validatedData.students.map((student) => ({
-      firstName: student.firstName,
-      lastName: student.lastName,
-      dni: student.dni,
-      email: student.email || null,
-      phone: student.phone || null,
-      size: student.size || null,
-      schoolDivisionId: division.id,
-      productId: product.id,
-      totalAmount,
-      paidAmount: 0,
-      balance,
-      installments: validatedData.installments,
-      role: "STUDENT",
-      createdBy: validatedData.adminId,
-    }));
+    const studentsToCreate = validatedData.students.map((student) => {
+      const resolvedProductId = student.productId ?? validatedData.productId;
+      const resolvedAmount = student.totalAmount ?? validatedData.totalAmount;
+      const resolvedInstallments =
+        student.installments ?? validatedData.installments;
 
+      return {
+        firstName: student.firstName,
+        lastName: student.lastName,
+        dni: student.dni,
+        email: student.email || null,
+        phone: student.phone || null,
+        size: student.size || null,
+        schoolDivisionId: division.id,
+        productId: resolvedProductId,
+        totalAmount: resolvedAmount,
+        paidAmount: 0,
+        balance: resolvedAmount,
+        installments: resolvedInstallments,
+        role: "STUDENT",
+        createdBy: validatedData.adminId,
+      };
+    });
     // 9. Create students
     const { data: createdStudents, error: studentsError } = await supabase
       .from("User")
@@ -224,7 +244,7 @@ export async function POST(request: Request) {
         school: school.name,
         division: validatedData.division,
         year: validatedData.year,
-        product: product.name,
+        product: globalProduct.name,
       },
     });
   } catch (error) {
