@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg id="logos" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1048.82 425.2">
-  <defs>
+<defs>
   <style>
-    .cls-1 { fill: #ffffff; }
-    .cls-2 { fill: #ffffff; }
-    .cls-3 { fill: #ffffff; }
+    .cls-1 { fill: #0a0080; stroke-width: 0px; }
+    .cls-2 { fill: transparent; stroke-width: 0px; }
+    .cls-3 { fill: #00bcff; stroke-width: 0px; }
   </style>
 </defs>
   <path class="cls-3" d="m274.38,116.94c-77.83,0-140.91,40.36-140.91,90.15s63.09,94.05,140.91,94.05,140.91-44.27,140.91-94.05-63.09-90.15-140.91-90.15Z"/>
